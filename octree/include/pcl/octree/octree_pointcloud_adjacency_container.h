@@ -46,10 +46,9 @@ namespace pcl
   namespace octree
   {
     /** \brief @b Octree adjacency leaf container class- stores set of pointers to neighbors, number of points added, and a DataT value
-    *    \note This class implements a leaf node that stores pointers to neighboring leaves
-    *   \note This class also has a virtual computeData function, which is called by octreePointCloudAdjacency::addPointsFromInputCloud.
-    *   \note You should make explicit instantiations of it for your pointtype/datatype combo (if needed) see supervoxel_clustering.hpp for an example of this
-    */
+      *   \note This class implements a leaf node that stores pointers to neighboring leaves
+      *   \note This class also has a virtual compute function, which is called by octreePointCloudAdjacency::addPointsFromInputCloud.
+      *   \note You should make explicit instantiations of it for your pointtype/datatype combo (if needed) see supervoxel_clustering.hpp for an example of this */
     template<typename PointInT, typename DataT = PointInT>
     class OctreePointCloudAdjacencyContainer : public OctreeContainerBase
     {
@@ -62,7 +61,7 @@ namespace pcl
       inline iterator end ()   { return (neighbors_.end ()); }
       inline const_iterator begin () const { return (neighbors_.begin ()); }
       inline const_iterator end () const  { return (neighbors_.end ()); }
-      //size of neighbors
+      //Number of neighbors
       inline size_t size () const { return neighbors_.size (); }
       //insert for neighbors
       inline std::pair<iterator, bool> insert (OctreePointCloudAdjacencyContainer* neighbor) { return neighbors_.insert (neighbor); }
@@ -85,7 +84,7 @@ namespace pcl
       {
         OctreePointCloudAdjacencyContainer *new_container = new OctreePointCloudAdjacencyContainer;
         new_container->setNeighbors (this->neighbors_);
-        new_container->setPointCounter (this->num_points_);
+        new_container->setData (this->data_);
         return new_container;
       }
       
@@ -97,8 +96,7 @@ namespace pcl
       void 
       addPoint (const PointInT& new_point)
       {
-        using namespace pcl::common;
-        ++num_points_;
+        data_.add (new_point);
       }
       
       /** \brief Function for working on data added. Base implementation does nothing 
@@ -106,22 +104,14 @@ namespace pcl
       void
       computeData ()
       {
+        data_.compute ();
       }
-      
-      /** \brief Gets the number of points contributing to this leaf */
-      int
-      getPointCounter () const { return num_points_; }
-      
-      /** \brief Sets the number of points contributing to this leaf */
-      void
-      setPointCounter (int points_arg) { num_points_ = points_arg; }
       
       /** \brief Clear the voxel centroid */
       virtual void 
       reset ()
       {
         neighbors_.clear ();
-        num_points_ = 0;
         data_ = DataT ();
       }
       
@@ -166,24 +156,17 @@ namespace pcl
       DataT&
       getData () { return data_; }
       
+      /** \brief Returns a const reference to the data member to access it without copying */
+      const DataT&
+      getData () const { return data_; }
+      
       /** \brief Sets the data member
        *  \param[in] data_arg New value for data
        */
       void
       setData (const DataT& data_arg) { data_ = data_arg;}
       
-      /** \brief  virtual method to get size of container 
-       * \return number of points added to leaf node container.
-       */
-      virtual size_t
-      getSize ()
-      {
-        return num_points_;
-      }
-      
-      
     private:
-      int num_points_;
       NeighborSetT neighbors_;
       DataT data_;
     };
