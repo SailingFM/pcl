@@ -14,14 +14,13 @@
 #include <vtkPolyLine.h>
 
 // Types
-typedef pcl::PointXYZRGBA PointT;
+typedef pcl::PointXYZRGBNormal PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
-typedef pcl::PointNormal PointNT;
-typedef pcl::PointCloud<PointNT> PointNCloudT;
 typedef pcl::PointXYZL PointLT;
 typedef pcl::PointCloud<PointLT> PointLCloudT;
-typedef pcl::Normal NormalT;
-typedef pcl::PointCloud<NormalT> NormalCloudT;
+typedef pcl::Supervoxel<PointT>::CentroidT SVCentroidT;
+typedef pcl::PointCloud<SVCentroidT> SVCentroidCloudT;
+
 
 bool show_voxel_centroids = true;
 bool show_supervoxels = true;
@@ -101,7 +100,6 @@ main (int argc, char ** argv)
     pcl::console::parse (argc, argv, "-d", depth_path);
   
   PointCloudT::Ptr cloud = boost::make_shared < PointCloudT >();
-  NormalCloudT::Ptr input_normals = boost::make_shared < NormalCloudT > ();
   
   bool pcd_file_specified = pcl::console::find_switch (argc, argv, "-p");
   std::string pcd_path;
@@ -119,8 +117,7 @@ main (int argc, char ** argv)
   }
   
   bool disable_transform = pcl::console::find_switch (argc, argv, "--NT");
-  bool ignore_provided_normals = pcl::console::find_switch (argc, argv, "--nonormals");
-  bool has_normals = false;
+  bool ignore_input_normals = pcl::console::find_switch (argc, argv, "--nonormals");
   
   std::string out_path = "test_output.png";;
   pcl::console::parse (argc, argv, "-o", out_path);
@@ -247,14 +244,14 @@ main (int argc, char ** argv)
       return (3);
     }
     pcl::fromPCLPointCloud2 (input_pointcloud2, *cloud);
-    if (!ignore_provided_normals)
+    if (!ignore_input_normals)
     {
       if (hasField (input_pointcloud2,"normal_x"))
       {
         std::cout << "Using normals contained in file. Set --nonormals option to disable this.\n";
-        pcl::fromPCLPointCloud2 (input_pointcloud2, *input_normals);
-        has_normals = true;
       }
+      else //No normals input, so set this to true so we recalculate.
+        ignore_input_normals = true;
     }
   }
   std::cout << "Done making cloud!\n";
@@ -281,20 +278,21 @@ main (int argc, char ** argv)
   
   pcl::SupervoxelClustering<PointT> super (voxel_resolution, seed_resolution,!disable_transform);
   super.setInputCloud (cloud);
-  if (has_normals)
-    super.setNormalCloud (input_normals);
   super.setColorImportance (color_importance);
   super.setSpatialImportance (spatial_importance);
   super.setNormalImportance (normal_importance);
+  //We need to do this because we're using PointXYZRGBNormal, but might not be providing normals
+  super.setIgnoreInputNormals (ignore_input_normals);
+  
   std::map <uint32_t, pcl::Supervoxel<PointT>::Ptr > supervoxel_clusters;
  
   std::cout << "Extracting supervoxels!\n";
   super.extract (supervoxel_clusters);
   std::cout << "Found " << supervoxel_clusters.size () << " Supervoxels!\n";
-  PointCloudT::Ptr colored_voxel_cloud = super.getColoredVoxelCloud ();
-  PointCloudT::Ptr voxel_centroid_cloud = super.getVoxelCentroidCloud ();
-  PointCloudT::Ptr full_colored_cloud = super.getColoredCloud ();
-  PointNCloudT::Ptr sv_normal_cloud = super.makeSupervoxelNormalCloud (supervoxel_clusters);
+  //TODO Remove this
+  pcl::PointCloud<PointXYZRGBA>::Ptr colored_voxel_cloud = super.getColoredVoxelCloud ();
+  PointCloudT::Ptr voxel_centroid_cloud = super.getVoxelCentroidCloud<PointT> ();
+  PointLCloudT::Ptr voxel_labeled_cloud = super.getLabeledVoxelCloud ();
   PointLCloudT::Ptr full_labeled_cloud = super.getLabeledCloud ();
   
   std::cout << "Getting supervoxel adjacency\n";
@@ -305,16 +303,24 @@ main (int argc, char ** argv)
   std::cout << "Refining supervoxels \n";
   super.refineSupervoxels (3, refined_supervoxel_clusters);
 
-  PointCloudT::Ptr refined_colored_voxel_cloud = super.getColoredVoxelCloud ();
-  PointNCloudT::Ptr refined_sv_normal_cloud = super.makeSupervoxelNormalCloud (refined_supervoxel_clusters);
+  //TODO Remove this
+  pcl::PointCloud<PointXYZRGBA>::Ptr refined_colored_voxel_cloud = super.getColoredVoxelCloud ();
+  PointCloudT::Ptr refined_voxel_centroid_cloud = super.getVoxelCentroidCloud<PointT> ();
+  PointLCloudT::Ptr refined_voxel_labeled_cloud = super.getLabeledVoxelCloud ();
   PointLCloudT::Ptr refined_full_labeled_cloud = super.getLabeledCloud ();
-  PointCloudT::Ptr refined_full_colored_cloud = super.getColoredCloud ();
   
   // THESE ONLY MAKE SENSE FOR ORGANIZED CLOUDS
-  pcl::io::savePNGFile (out_path, *full_colored_cloud, "rgb");
-  pcl::io::savePNGFile (refined_out_path, *refined_full_colored_cloud, "rgb");
+
   pcl::io::savePNGFile (out_label_path, *full_labeled_cloud, "label");
   pcl::io::savePNGFile (refined_out_label_path, *refined_full_labeled_cloud, "label");
+  
+  //Save RGB from labels
+  //  pcl::io::savePNGFile (out_path, *full_colored_cloud, "rgb");
+  //pcl::io::savePNGFile (refined_out_path, *refined_full_colored_cloud, "rgb");
+  //pcl::PointCloudImageExtractorFromLabelField<PointT> pcie (COLOR_SADKASDHS);
+  //pcl::PCLImage image;
+  //pcie->extract (cloud, image);
+  //savePNGFile(file_name, image);
   
   std::cout << "Constructing Boost Graph Library Adjacency List...\n";
   typedef boost::adjacency_list<boost::setS, boost::setS, boost::undirectedS, uint32_t, float> VoxelAdjacencyList;
@@ -351,12 +357,13 @@ main (int argc, char ** argv)
     {
       viewer->removePointCloud ("colored voxels");
     }
-    
+
     if (show_voxel_centroids)
     {
-      if (!viewer->updatePointCloud (voxel_centroid_cloud, "voxel centroids"))
+      pcl::visualization::PointCloudColorHandlerRGBField<PointT> color_handler ((show_refined)?refined_voxel_centroid_cloud:voxel_centroid_cloud);
+      if (!viewer->updatePointCloud (voxel_centroid_cloud, color_handler, "voxel centroids"))
       {
-        viewer->addPointCloud (voxel_centroid_cloud, "voxel centroids");
+        viewer->addPointCloud ((show_refined)?refined_voxel_centroid_cloud:voxel_centroid_cloud, color_handler, "voxel centroids");
         viewer->setPointCloudRenderingProperties (pcl::visualization::PCL_VISUALIZER_POINT_SIZE,2.0, "voxel centroids");
       }
     }
@@ -370,7 +377,7 @@ main (int argc, char ** argv)
       if (refined_sv_normal_shown != show_refined || !sv_added)
       {
         viewer->removePointCloud ("supervoxel_normals");
-        viewer->addPointCloudNormals<PointNormal> ((show_refined)?refined_sv_normal_cloud:sv_normal_cloud,1,0.05f, "supervoxel_normals");
+        viewer->addPointCloudNormals<PointT> ((show_refined)?refined_voxel_centroid_cloud:voxel_centroid_cloud,1,0.05f, "supervoxel_normals");
         sv_added = true;
       }
       refined_sv_normal_shown = show_refined;
@@ -392,7 +399,7 @@ main (int argc, char ** argv)
         if (refined_normal_shown != show_refined || !normals_added)
         {
           viewer->removePointCloud (ss.str ());
-          viewer->addPointCloudNormals<PointT,Normal> ((sv_itr->second)->voxels_,(sv_itr->second)->normals_,10,0.02f,ss.str ());
+          viewer->addPointCloudNormals<PointT,PointT> ((sv_itr->second)->voxels_,(sv_itr->second)->voxels_,10,0.02f,ss.str ());
         //  std::cout << (sv_itr->second)->normals_->points[0]<<"\n";
           
         }
@@ -425,7 +432,7 @@ main (int argc, char ** argv)
          //Now get the supervoxel corresponding to the label
         pcl::Supervoxel<PointT>::Ptr supervoxel = supervoxel_clusters.at (supervoxel_label);
         //Now we need to iterate through the adjacent supervoxels and make a point cloud of them
-        PointCloudT adjacent_supervoxel_centers;
+        pcl::PointCloud<pcl::Supervoxel<PointT>::CentroidT> adjacent_supervoxel_centers;
         std::multimap<uint32_t,uint32_t>::iterator adjacent_itr = label_adjacency.equal_range (supervoxel_label).first;
         for ( ; adjacent_itr!=label_adjacency.equal_range (supervoxel_label).second; ++adjacent_itr)
         {     
