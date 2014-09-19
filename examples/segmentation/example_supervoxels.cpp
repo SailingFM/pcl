@@ -18,7 +18,7 @@ typedef pcl::PointXYZRGBNormal PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;
 typedef pcl::PointXYZL PointLT;
 typedef pcl::PointCloud<PointLT> PointLCloudT;
-typedef pcl::Supervoxel<PointT>::CentroidT SVCentroidT;
+typedef pcl::Supervoxel::CentroidT SVCentroidT;
 typedef pcl::PointCloud<SVCentroidT> SVCentroidCloudT;
 
 
@@ -284,7 +284,7 @@ main (int argc, char ** argv)
   //We need to do this because we're using PointXYZRGBNormal, but might not be providing normals
   super.setIgnoreInputNormals (ignore_input_normals);
   
-  std::map <uint32_t, pcl::Supervoxel<PointT>::Ptr > supervoxel_clusters;
+  std::map <uint32_t, pcl::Supervoxel::Ptr > supervoxel_clusters;
  
   std::cout << "Extracting supervoxels!\n";
   super.extract (supervoxel_clusters);
@@ -299,7 +299,7 @@ main (int argc, char ** argv)
   std::multimap<uint32_t, uint32_t> label_adjacency;
   super.getSupervoxelAdjacency (label_adjacency);
    
-  std::map <uint32_t, pcl::Supervoxel<PointT>::Ptr > refined_supervoxel_clusters;
+  std::map <uint32_t, pcl::Supervoxel::Ptr > refined_supervoxel_clusters;
   std::cout << "Refining supervoxels \n";
   super.refineSupervoxels (3, refined_supervoxel_clusters);
 
@@ -389,7 +389,7 @@ main (int argc, char ** argv)
     
     if (show_normals)
     {
-      std::map <uint32_t, pcl::Supervoxel<PointT>::Ptr>::iterator sv_itr,sv_itr_end;
+      std::map <uint32_t, pcl::Supervoxel::Ptr>::iterator sv_itr,sv_itr_end;
       sv_itr = ((show_refined)?refined_supervoxel_clusters.begin ():supervoxel_clusters.begin ());
       sv_itr_end = ((show_refined)?refined_supervoxel_clusters.end ():supervoxel_clusters.end ());
       for (; sv_itr != sv_itr_end; ++sv_itr)
@@ -410,7 +410,7 @@ main (int argc, char ** argv)
     }
     else if (!show_normals)
     {
-      std::map <uint32_t, pcl::Supervoxel<PointT>::Ptr>::iterator sv_itr,sv_itr_end;
+      std::map <uint32_t, pcl::Supervoxel::Ptr>::iterator sv_itr,sv_itr_end;
       sv_itr = ((show_refined)?refined_supervoxel_clusters.begin ():supervoxel_clusters.begin ());
       sv_itr_end = ((show_refined)?refined_supervoxel_clusters.end ():supervoxel_clusters.end ());
       for (; sv_itr != sv_itr_end; ++sv_itr)
@@ -430,13 +430,13 @@ main (int argc, char ** argv)
         //First get the label 
         uint32_t supervoxel_label = label_itr->first;
          //Now get the supervoxel corresponding to the label
-        pcl::Supervoxel<PointT>::Ptr supervoxel = supervoxel_clusters.at (supervoxel_label);
+        pcl::Supervoxel::Ptr supervoxel = supervoxel_clusters.at (supervoxel_label);
         //Now we need to iterate through the adjacent supervoxels and make a point cloud of them
-        pcl::PointCloud<pcl::Supervoxel<PointT>::CentroidT> adjacent_supervoxel_centers;
+        pcl::PointCloud<pcl::Supervoxel::CentroidT> adjacent_supervoxel_centers;
         std::multimap<uint32_t,uint32_t>::iterator adjacent_itr = label_adjacency.equal_range (supervoxel_label).first;
         for ( ; adjacent_itr!=label_adjacency.equal_range (supervoxel_label).second; ++adjacent_itr)
         {     
-          pcl::Supervoxel<PointT>::Ptr neighbor_supervoxel = supervoxel_clusters.at (adjacent_itr->second);
+          pcl::Supervoxel::Ptr neighbor_supervoxel = supervoxel_clusters.at (adjacent_itr->second);
           adjacent_supervoxel_centers.push_back (neighbor_supervoxel->centroid_);
         }
         //Now we make a name for this polygon
