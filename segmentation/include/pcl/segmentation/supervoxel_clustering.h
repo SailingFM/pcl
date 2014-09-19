@@ -61,7 +61,6 @@ namespace pcl
 {
   /** \brief Supervoxel container class - stores a cluster extracted using supervoxel clustering 
    */
-  template <typename PointT>
   class Supervoxel
   {
     public:
@@ -72,8 +71,8 @@ namespace pcl
         voxels_ (new pcl::PointCloud<VoxelT> ())
         {  } 
       
-      typedef boost::shared_ptr<Supervoxel<PointT> > Ptr;
-      typedef boost::shared_ptr<const Supervoxel<PointT> > ConstPtr;
+      typedef boost::shared_ptr<Supervoxel> Ptr;
+      typedef boost::shared_ptr<const Supervoxel> ConstPtr;
 
       /** \brief Gets the centroid of the supervoxel
        *  \param[out] centroid_arg centroid of the supervoxel
@@ -120,8 +119,8 @@ namespace pcl
     friend class SupervoxelHelper;
     
     public:
-      typedef typename Supervoxel<PointT>::CentroidT CentroidT;
-      typedef typename Supervoxel<PointT>::VoxelT VoxelT;
+      typedef typename Supervoxel::CentroidT CentroidT;
+      typedef typename Supervoxel::VoxelT VoxelT;
       /** \brief VoxelData is a structure used for storing data within a pcl::octree::OctreePointCloudAdjacencyContainer
        *  \note It stores xyz, rgb, normal, distance, an index, and an owner.
        */
@@ -234,7 +233,7 @@ namespace pcl
        * \param[out] supervoxel_clusters A map of labels to pointers to supervoxel structures
        */
       virtual void
-      extract (std::map<uint32_t,typename Supervoxel<PointT>::Ptr > &supervoxel_clusters);
+      extract (std::map<uint32_t,typename Supervoxel::Ptr > &supervoxel_clusters);
 
       /** \brief This method sets the cloud to be supervoxelized
        * \param[in] cloud The cloud to be supervoxelize
@@ -255,7 +254,7 @@ namespace pcl
        * \param[out] supervoxel_clusters The resulting refined supervoxels
        */
       virtual void
-      refineSupervoxels (int num_itr, std::map<uint32_t,typename Supervoxel<PointT>::Ptr > &supervoxel_clusters);
+      refineSupervoxels (int num_itr, std::map<uint32_t,typename Supervoxel::Ptr > &supervoxel_clusters);
       
       ////////////////////////////////////////////////////////////
       /** \brief Returns an RGB colorized cloud showing superpixels
@@ -320,7 +319,7 @@ namespace pcl
        * 
        */
       static pcl::PointCloud<pcl::PointNormal>::Ptr
-      makeSupervoxelNormalCloud (std::map<uint32_t,typename Supervoxel<PointT>::Ptr > &supervoxel_clusters);
+      makeSupervoxelNormalCloud (std::map<uint32_t,typename Supervoxel::Ptr > &supervoxel_clusters);
       
       /** \brief Returns the current maximum (highest) label */
       int
@@ -366,7 +365,7 @@ namespace pcl
       
       /** \brief Constructs the map of supervoxel clusters from the internal supervoxel helpers */
       void
-      makeSupervoxels (std::map<uint32_t,typename Supervoxel<PointT>::Ptr > &supervoxel_clusters);
+      makeSupervoxels (std::map<uint32_t,typename Supervoxel::Ptr > &supervoxel_clusters);
       
       /** \brief Stores the resolution used in the octree */
       float resolution_;
