@@ -97,7 +97,7 @@ namespace pcl
       /** \brief The centroid of the supervoxel */
       CentroidT centroid_;
       /** \brief A Pointcloud of the voxels in the supervoxel */
-      typename pcl::PointCloud<VoxelT>::Ptr voxels_;
+      pcl::PointCloud<VoxelT>::Ptr voxels_;
     public:
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW  
   };
@@ -186,7 +186,7 @@ namespace pcl
        *  \param[in] seed_resolution The average size (in meters) of resulting supervoxels
        *  \param[in] use_single_camera_transform Set to true if point density in cloud falls off with distance from origin (such as with a cloud coming from one stationary camera), set false if input cloud is from multiple captures from multiple locations.
        */
-      SupervoxelClustering (float voxel_resolution, float seed_resolution, bool use_single_camera_transform = true);
+      SupervoxelClustering (float voxel_resolution, float seed_resolution, bool use_single_camera_transform = true, bool prune_close_seeds=true);
 
       /** \brief This destructor destroys the cloud, normals and search method used for
         * finding neighbors. In other words it frees memory.
@@ -346,6 +346,9 @@ namespace pcl
       void
       selectInitialSupervoxelSeeds (std::vector<int> &seed_indices);
       
+      int 
+      findNeighborMinCurvature (int idx);
+      
       /** \brief This method creates the internal supervoxel helpers based on the provided seed points
        *  \param[in] seed_indices Indices of the leaves to use as seeds
        */
@@ -400,6 +403,7 @@ namespace pcl
       /** \brief Option to ignore normals in input Pointcloud. Defaults to false */
       bool ignore_input_normals_; 
       
+      bool prune_close_seeds_;
       /** \brief Stores the colors used for the superpixel labels*/
       std::vector<uint32_t> label_colors_;
       
@@ -423,7 +427,7 @@ namespace pcl
               return leaf_data_left.idx_ < leaf_data_right.idx_;
             }
           };
-          typedef std::set<LeafContainerT*,SupervoxelHelper::compareLeaves> LeafSetT;
+          typedef std::set<LeafContainerT*, typename SupervoxelHelper::compareLeaves> LeafSetT;
           typedef typename LeafSetT::iterator iterator;
           typedef typename LeafSetT::const_iterator const_iterator;
           
@@ -487,6 +491,25 @@ namespace pcl
           EIGEN_MAKE_ALIGNED_OPERATOR_NEW
       };
       
+      /** \brief Local helper class used for removing seeds from within neighborhood of other seeds
+       */
+      struct SeedNHood
+      {
+        typedef boost::shared_ptr<SeedNHood> Ptr;
+        //! Index into seed_cloud_
+        int seed_idx_;
+        //! Index into voxel_centroid_cloud_
+        int voxel_idx_;
+        //! Number not removed seeds within radius
+        int num_active_;
+        //! seed_idx_ indices of seeds within radius
+        std::vector<int> neighbor_indices_;
+        //! greater than comparison function for sorting
+        bool operator() (const Ptr &lhs, const Ptr &rhs) const 
+        {
+          return (lhs->num_active_ > rhs->num_active_);
+        }
+      };
       //Make boost::ptr_list can access the private class SupervoxelHelper
       friend void boost::checked_delete<> (const typename pcl::SupervoxelClustering<PointT>::SupervoxelHelper *);
       

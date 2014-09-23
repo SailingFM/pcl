@@ -118,7 +118,7 @@ main (int argc, char ** argv)
   
   bool disable_transform = pcl::console::find_switch (argc, argv, "--NT");
   bool ignore_input_normals = pcl::console::find_switch (argc, argv, "--nonormals");
-  
+  bool no_shift_seeds = pcl::console::find_switch (argc, argv, "--noshiftseeds");
   std::string out_path = "test_output.png";;
   pcl::console::parse (argc, argv, "-o", out_path);
   
@@ -276,7 +276,7 @@ main (int argc, char ** argv)
     std::cout <<"You can disable the transform with the --NT flag\n";    
   }
   
-  pcl::SupervoxelClustering<PointT> super (voxel_resolution, seed_resolution,!disable_transform);
+  pcl::SupervoxelClustering<PointT> super (voxel_resolution, seed_resolution,!disable_transform,!no_shift_seeds);
   super.setInputCloud (cloud);
   super.setColorImportance (color_importance);
   super.setSpatialImportance (spatial_importance);

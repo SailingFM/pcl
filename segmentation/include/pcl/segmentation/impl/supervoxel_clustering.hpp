@@ -44,7 +44,7 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT>
-pcl::SupervoxelClustering<PointT>::SupervoxelClustering (float voxel_resolution, float seed_resolution, bool use_single_camera_transform) :
+pcl::SupervoxelClustering<PointT>::SupervoxelClustering (float voxel_resolution, float seed_resolution, bool use_single_camera_transform, bool prune_close_seeds) :
   resolution_ (voxel_resolution),
   seed_resolution_ (seed_resolution),
   adjacency_octree_ (),
@@ -53,6 +53,7 @@ pcl::SupervoxelClustering<PointT>::SupervoxelClustering (float voxel_resolution,
   spatial_importance_ (0.4f),
   normal_importance_ (1.0f),
   ignore_input_normals_ (false),
+  prune_close_seeds_ (prune_close_seeds),
   label_colors_ (0)
 {
   adjacency_octree_.reset (new OctreeAdjacencyT (resolution_));
@@ -209,7 +210,7 @@ pcl::SupervoxelClustering<PointT>::computeVoxelData ()
   //If input point type does not have normals, we need to compute them
   if (!pcl::traits::has_normal<PointT>::value || ignore_input_normals_)
   {
-    for (leaf_itr = adjacency_octree_->begin (); leaf_itr != adjacency_octree_->end (); ++leaf_itr)
+    for (leaf_itr = adjacency_octree_->begin (), cent_cloud_itr = voxel_centroid_cloud_->begin (); leaf_itr != adjacency_octree_->end (); ++leaf_itr, ++cent_cloud_itr)
     {
       VoxelData& new_voxel_data = (*leaf_itr)->getData ();
       //For every point, get its neighbors, build an index vector, compute normal
@@ -237,6 +238,8 @@ pcl::SupervoxelClustering<PointT>::computeVoxelData ()
       pcl::flipNormalTowardsViewpoint (new_voxel_data.voxel_centroid_, 0.0f,0.0f,0.0f, new_voxel_data.voxel_centroid_.normal_x,
                                                                                        new_voxel_data.voxel_centroid_.normal_y,
                                                                                        new_voxel_data.voxel_centroid_.normal_z);
+      //Put curvature and normal into voxel_centroid_cloud_
+      new_voxel_data.getPoint (*cent_cloud_itr);
     }  
   }
 }
@@ -316,19 +319,15 @@ pcl::SupervoxelClustering<PointT>::createSupervoxelHelpers (std::vector<int> &se
 template <typename PointT> void
 pcl::SupervoxelClustering<PointT>::selectInitialSupervoxelSeeds (std::vector<int> &seed_indices)
 {
-  //TODO THIS IS BAD - SEEDING SHOULD BE BETTER
-  //TODO Switch to assigning leaves! Don't use Octree!
-  
- // std::cout << "Size of centroid cloud="<<voxel_centroid_cloud_->size ()<<", seeding resolution="<<seed_resolution_<<"\n";
   //Initialize octree with voxel centroids
   pcl::octree::OctreePointCloudSearch <VoxelT> seed_octree (seed_resolution_);
   seed_octree.setInputCloud (voxel_centroid_cloud_);
   seed_octree.addPointsFromInputCloud ();
- // std::cout << "Size of octree ="<<seed_octree.getLeafCount ()<<"\n";
+  //std::cout << "Size of octree ="<<seed_octree.getLeafCount ()<<"\n";
   std::vector<VoxelT, Eigen::aligned_allocator<VoxelT> > voxel_centers; 
   int num_seeds = seed_octree.getOccupiedVoxelCenters(voxel_centers); 
   //std::cout << "Number of seed points before filtering="<<voxel_centers.size ()<<std::endl;
-  
+
   std::vector<int> seed_indices_orig;
   seed_indices_orig.resize (num_seeds, 0);
   seed_indices.clear ();
@@ -336,40 +335,118 @@ pcl::SupervoxelClustering<PointT>::selectInitialSupervoxelSeeds (std::vector<int
   std::vector<float> distance;
   closest_index.resize(1,0);
   distance.resize(1,0);
-  if (voxel_kdtree_ == 0)
-  {
-    voxel_kdtree_.reset (new pcl::search::KdTree<VoxelT>);
-    voxel_kdtree_ ->setInputCloud (voxel_centroid_cloud_);
-  }
   
+  voxel_kdtree_.reset (new pcl::search::KdTree<VoxelT>);
+  voxel_kdtree_ ->setInputCloud (voxel_centroid_cloud_);
+  //Find closest point to seed_resolution octree centroids in voxel_centroid_cloud
   for (int i = 0; i < num_seeds; ++i)  
   {
     voxel_kdtree_->nearestKSearch (voxel_centers[i], 1, closest_index, distance);
     seed_indices_orig[i] = closest_index[0];
   }
   
-  std::vector<int> neighbors;
-  std::vector<float> sqr_distances;
-  seed_indices.reserve (seed_indices_orig.size ());
-  float search_radius = 0.5f*seed_resolution_;
-  // This is number of voxels which fit in a planar slice through search volume
-  // Area of planar slice / area of voxel side
-  float min_points = 0.05f * (search_radius)*(search_radius) * 3.1415926536f  / (resolution_*resolution_);
+  //Shift seeds to voxels within set of neighbors with min curvature (iteratively)
+  typename VoxelCloudT::Ptr seed_cloud_ (new VoxelCloudT);
+  seed_cloud_->reserve (seed_indices_orig.size ());
+  std::vector<int> voxel_cloud_indices (num_seeds);
+  // This is an important parameter - determines maximum shift - here, it is seed resolution (on an axis aligned plane)
+  int search_depth = static_cast<int> (1.0f*seed_resolution_/resolution_);
   for (size_t i = 0; i < seed_indices_orig.size (); ++i)
   {
-    int num = voxel_kdtree_->radiusSearch (seed_indices_orig[i], search_radius , neighbors, sqr_distances);
-    int min_index = seed_indices_orig[i];
-    if ( num > min_points)
-    {
-      seed_indices.push_back (min_index);
-    }
-    
+    int idx = seed_indices_orig[i];
+    //Shift based on curvature, number of times based on voxel to seed size ratio
+    for (int k = 0; k < search_depth; ++k)
+      idx = findNeighborMinCurvature (idx);
+    voxel_cloud_indices [i] = idx;
+    seed_cloud_->push_back (voxel_centroid_cloud_->at(idx));
   }
- // std::cout << "Number of seed points after filtering="<<seed_points.size ()<<std::endl;
+  num_seeds = seed_cloud_->size ();
+  //If we're not pruning, we're done.
+  if (!prune_close_seeds_)
+  {
+    seed_indices = voxel_cloud_indices;
+    return;
+  }
+   
+  voxel_kdtree_.reset (new pcl::search::KdTree<VoxelT> (false));
+  voxel_kdtree_ ->setInputCloud (seed_cloud_);
+  std::vector<int> neighbors;
+  std::vector<float> sqr_distances;
+ 
+  //Now we will check if seeds are near to other seeds
+  std::vector<typename SeedNHood::Ptr> seed_nhoods;
+  float search_radius = seed_resolution_ / 2;
+  for (int i = 0; i < voxel_cloud_indices.size (); ++i)  
+  {
+    int voxel_idx = voxel_cloud_indices[i];    
+    int num_neighbors = voxel_kdtree_->radiusSearch (voxel_centroid_cloud_->at(voxel_idx), search_radius , neighbors, sqr_distances);
+    //neighbors are unsorted - we sort them here by INDEX
+    std::sort (neighbors.begin(), neighbors.end());
+    seed_nhoods.push_back (boost::make_shared<SeedNHood> ());
+    seed_nhoods[i]->neighbor_indices_ = neighbors;
+    seed_nhoods[i]->voxel_idx_ = voxel_idx;
+    seed_nhoods[i]->seed_idx_ = i;
+    seed_nhoods[i]->num_active_ = num_neighbors;
+  }
+  //Now sort by number of num_active
+  std::sort (seed_nhoods.begin (), seed_nhoods.end (), SeedNHood() );
+  //Now iteratively remove seed with most neighbors, updating num active of all below
+  //Stopping condition is 1 in radius (itself) so no other seeds within radius
+  int max_in_radius = 1;
+  int num_removed = 0;
+  while (num_removed < seed_nhoods.size () && seed_nhoods[num_removed]->num_active_ > max_in_radius)
+  {
+    int idx_to_remove = seed_nhoods[num_removed]->seed_idx_;
+    seed_nhoods[num_removed]->num_active_ = -1;
+    //Search remaining seeds for idx_to_remove, if found, reduce num active for it
+    for (int i = num_removed + 1; i < seed_nhoods.size (); ++i)
+    {
+      if (std::binary_search(seed_nhoods[i]->neighbor_indices_.begin (), seed_nhoods[i]->neighbor_indices_.end (), idx_to_remove))
+      {
+        --seed_nhoods[i]->num_active_;
+      }
+    }
+    ++num_removed;
+    //Now resort by number of alive seeds within radius 
+    std::sort (seed_nhoods.begin () + num_removed, seed_nhoods.end (), SeedNHood() );
+  }
+  
+  //Now clear seed indices and push final indices into it
+  seed_indices.clear ();
+  for (typename std::vector<typename SeedNHood::Ptr>::iterator itr = seed_nhoods.begin () + num_removed; itr != seed_nhoods.end (); ++itr)
+  {
+    seed_indices.push_back ((*itr)->voxel_idx_);
+  }
+  //std::cout <<"Removed "<<num_removed<<" seeds, seed points after filtering="<<seed_indices.size ()<<std::endl;
   
 }
 
-
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template <typename PointT> int
+pcl::SupervoxelClustering<PointT>::findNeighborMinCurvature (int idx)
+{
+  LeafContainerT* leaf_container = adjacency_octree_->at(idx);
+  //VoxelData& voxel_data = leaf_container->getData ();
+  int min_idx = idx;
+  double min_curvature = voxel_centroid_cloud_->points[idx].curvature;
+  for (typename LeafContainerT::const_iterator neighb_itr=leaf_container->cbegin (); neighb_itr!=leaf_container->cend (); ++neighb_itr)
+  {
+    VoxelData& neighb_voxel_data = (*neighb_itr)->getData ();
+    if (neighb_voxel_data.voxel_centroid_.curvature < min_curvature)
+    {
+      min_curvature = neighb_voxel_data.voxel_centroid_.curvature ;
+      min_idx = neighb_voxel_data.idx_;
+    }
+    
+    //Get neighbors neighbors, push onto cloud
+    //for (typename LeafContainerT::const_iterator neighb_neighb_itr=(*neighb_itr)->cbegin (); neighb_neighb_itr!=(*neighb_itr)->cend (); ++neighb_neighb_itr)
+    //{
+    //  VoxelData& neighb2_voxel_data = (*neighb_neighb_itr)->getData ();
+    //  indices.push_back (neighb2_voxel_data.idx_);
+    //}
+  }
+  return min_idx;
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT> void
 pcl::SupervoxelClustering<PointT>::reseedSupervoxels ()
@@ -379,6 +456,9 @@ pcl::SupervoxelClustering<PointT>::reseedSupervoxels ()
   {
     sv_itr->removeAllLeaves ();
   }
+  
+  voxel_kdtree_.reset (new pcl::search::KdTree<VoxelT> (false));
+  voxel_kdtree_ ->setInputCloud (voxel_centroid_cloud_);
   
   std::vector<int> closest_index;
   std::vector<float> distance;
