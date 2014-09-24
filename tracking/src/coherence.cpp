@@ -39,6 +39,7 @@
 #include <pcl/tracking/impl/hsv_color_coherence.hpp>
 #include <pcl/tracking/impl/nearest_pair_point_cloud_coherence.hpp>
 #include <pcl/tracking/impl/normal_coherence.hpp>
+#include <pcl/tracking/impl/stratified_point_cloud_coherence.hpp>
 
 #ifndef PCL_NO_PRECOMPILE
 #include <pcl/impl/instantiate.hpp>
@@ -47,6 +48,7 @@ PCL_INSTANTIATE(ApproxNearestPairPointCloudCoherence, PCL_XYZ_POINT_TYPES)
 PCL_INSTANTIATE(DistanceCoherence, PCL_XYZ_POINT_TYPES)
 PCL_INSTANTIATE(HSVColorCoherence, (pcl::PointXYZRGB)(pcl::PointXYZRGBNormal)(pcl::PointXYZRGBA))
 PCL_INSTANTIATE(NearestPairPointCloudCoherence, PCL_XYZ_POINT_TYPES)
+PCL_INSTANTIATE(StratifiedPointCloudCoherence, PCL_XYZ_POINT_TYPES)
 PCL_INSTANTIATE(NormalCoherence, PCL_NORMAL_POINT_TYPES)
 #endif    // PCL_NO_PRECOMPILE
 

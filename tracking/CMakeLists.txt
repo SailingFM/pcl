@@ -31,6 +31,7 @@ if(build)
         "include/pcl/${SUBSYS_NAME}/kld_adaptive_particle_filter.h"
         "include/pcl/${SUBSYS_NAME}/kld_adaptive_particle_filter_omp.h"
         "include/pcl/${SUBSYS_NAME}/pyramidal_klt.h"
+        "include/pcl/${SUBSYS_NAME}/stratified_point_cloud_coherence.h"
         )
 
     set(impl_incs 
@@ -47,6 +48,7 @@ if(build)
         "include/pcl/${SUBSYS_NAME}/impl/kld_adaptive_particle_filter.hpp"
         "include/pcl/${SUBSYS_NAME}/impl/kld_adaptive_particle_filter_omp.hpp"
         "include/pcl/${SUBSYS_NAME}/impl/pyramidal_klt.hpp"
+        "include/pcl/${SUBSYS_NAME}/impl/stratified_point_cloud_coherence.hpp"
         )
 
     set(LIB_NAME "pcl_${SUBSYS_NAME}")
