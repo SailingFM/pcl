@@ -92,7 +92,7 @@ namespace pcl
        *  \param[in] supervoxel_clusters_arg Map of < supervoxel labels, supervoxels >
        *  \param[in] label_adjacency_arg The graph defining the supervoxel adjacency relations  */
       void
-      segment (std::map<uint32_t, typename pcl::Supervoxel<PointT>::Ptr> &supervoxel_clusters_arg,
+      segment (std::map<uint32_t, typename pcl::Supervoxel::Ptr> &supervoxel_clusters_arg,
                std::multimap<uint32_t, uint32_t> &label_adjacency_arg);
 
       /** \brief Relabels cloud with supervoxel labels with the computed segment labels
@@ -215,7 +215,7 @@ namespace pcl
        *  \param[in] supervoxel_clusters_arg map of < supervoxel labels, supervoxels >
        *  \param[in] label_adjacency_arg The graph defining the supervoxel adjacency relations */
       void
-      prepareSegmentation (const std::map<uint32_t, typename pcl::Supervoxel<PointT>::Ptr> &supervoxel_clusters_arg,
+      prepareSegmentation (const std::map<uint32_t, typename pcl::Supervoxel::Ptr> &supervoxel_clusters_arg,
                            const std::multimap<uint32_t, uint32_t> &label_adjacency_arg);
 
       /** \brief Assigns neighbors of the query point to the same group as the query point. Recursive part of groupSupervoxels (..). Grouping is done by a depth-search of nodes in the adjacency-graph.
@@ -276,7 +276,7 @@ namespace pcl
       SupervoxelAdjacencyList sv_adjacency_list_;
 
       /** \brief map from the supervoxel labels to the supervoxel objects  */
-      std::map<uint32_t, typename pcl::Supervoxel<PointT>::Ptr> sv_label_to_supervoxel_map_;
+      std::map<uint32_t, typename pcl::Supervoxel::Ptr> sv_label_to_supervoxel_map_;
 
       /** \brief Storing relation between original SuperVoxel Labels and new segmantion labels. svLabel_segLabel_map_[old_labelID] = new_labelID */
       std::map<uint32_t, uint32_t> sv_label_to_seg_label_map_;

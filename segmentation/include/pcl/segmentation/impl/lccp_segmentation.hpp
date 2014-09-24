@@ -225,7 +225,7 @@ pcl::LCCPSegmentation<PointT>::removeSmallSegments (uint32_t min_segment_size_ar
 }
 
 template <typename PointT> void
-pcl::LCCPSegmentation<PointT>::prepareSegmentation (const std::map<uint32_t, typename pcl::Supervoxel<PointT>::Ptr>& supervoxel_clusters_arg,
+pcl::LCCPSegmentation<PointT>::prepareSegmentation (const std::map<uint32_t, typename pcl::Supervoxel::Ptr>& supervoxel_clusters_arg,
                                                     const std::multimap<boost::uint32_t, boost::uint32_t>& label_adjaceny_arg)
 {
   // Clear internal data
@@ -238,7 +238,7 @@ pcl::LCCPSegmentation<PointT>::prepareSegmentation (const std::map<uint32_t, typ
   std::map<uint32_t, VertexID> label_ID_map;
 
   // Add all supervoxel labels as vertices
-  for (typename std::map<uint32_t, typename pcl::Supervoxel<PointT>::Ptr>::iterator svlabel_itr = sv_label_to_supervoxel_map_.begin ();
+  for (typename std::map<uint32_t, typename pcl::Supervoxel::Ptr>::iterator svlabel_itr = sv_label_to_supervoxel_map_.begin ();
       svlabel_itr != sv_label_to_supervoxel_map_.end (); ++svlabel_itr)
   {
     const uint32_t SV_LABEL = svlabel_itr->first;
@@ -261,7 +261,7 @@ pcl::LCCPSegmentation<PointT>::prepareSegmentation (const std::map<uint32_t, typ
   }
 
   // Initialization
-  for (typename std::map<uint32_t, typename pcl::Supervoxel<PointT>::Ptr>::iterator svlabel_itr = sv_label_to_supervoxel_map_.begin ();
+  for (typename std::map<uint32_t, typename pcl::Supervoxel::Ptr>::iterator svlabel_itr = sv_label_to_supervoxel_map_.begin ();
       svlabel_itr != sv_label_to_supervoxel_map_.end (); ++svlabel_itr)
   {
     const uint32_t sv_label = svlabel_itr->first;
@@ -271,7 +271,7 @@ pcl::LCCPSegmentation<PointT>::prepareSegmentation (const std::map<uint32_t, typ
 }
 
 template <typename PointT> void
-pcl::LCCPSegmentation<PointT>::segment (std::map<uint32_t, typename pcl::Supervoxel<PointT>::Ptr>& supervoxel_clusters_arg,
+pcl::LCCPSegmentation<PointT>::segment (std::map<uint32_t, typename pcl::Supervoxel::Ptr>& supervoxel_clusters_arg,
                                         std::multimap<boost::uint32_t, boost::uint32_t>& label_adjacency_arg)
 {
   /// Initialization
@@ -425,14 +425,11 @@ template <typename PointT> bool
 pcl::LCCPSegmentation<PointT>::connIsConvex (uint32_t source_label_arg,
                                              uint32_t target_label_arg)
 {
-  typename pcl::Supervoxel<PointT>::Ptr& sv_source = sv_label_to_supervoxel_map_[source_label_arg];
-  typename pcl::Supervoxel<PointT>::Ptr& sv_target = sv_label_to_supervoxel_map_[target_label_arg];
+  typename pcl::Supervoxel::Ptr& sv_source = sv_label_to_supervoxel_map_[source_label_arg];
+  typename pcl::Supervoxel::Ptr& sv_target = sv_label_to_supervoxel_map_[target_label_arg];
 
-  const pcl::PointXYZRGBA& source_centroid = sv_source->centroid_;
-  const pcl::PointXYZRGBA& target_centroid = sv_target->centroid_;
-
-  const pcl::Normal& source_normal = sv_source->normal_;
-  const pcl::Normal& target_normal = sv_target->normal_;
+  const pcl::Supervoxel::CentroidT& source_centroid = sv_source->centroid_;
+  const pcl::Supervoxel::CentroidT& target_centroid = sv_target->centroid_;
 
   //NOTE For angles below 0 nothing will be merged
   if (concavity_tolerance_threshold_ < 0)
@@ -442,7 +439,7 @@ pcl::LCCPSegmentation<PointT>::connIsConvex (uint32_t source_label_arg,
 
   bool is_convex = true;
   bool is_smooth = true;
-  float normal_angle = std::acos (source_normal.getNormalVector3fMap ().dot (target_normal.getNormalVector3fMap ())) * 180. / M_PI;
+  float normal_angle = std::acos (source_centroid.getNormalVector3fMap ().dot (target_centroid.getNormalVector3fMap ())) * 180. / M_PI;
   //   float curvature_difference = std::fabs (SOURCE_NORMAL.curvature - TARGET_NORMAL.curvature);
 
   ///  Geometric comparisons
@@ -461,18 +458,18 @@ pcl::LCCPSegmentation<PointT>::connIsConvex (uint32_t source_label_arg,
   float dot_p_source, dot_p_target;
 
   // vec_t_to_s is the reference direction for angle measurements
-  dot_p_source = unitvec_t_to_s.getVector3fMap ().dot (source_normal.getNormalVector3fMap ());
-  dot_p_target = unitvec_t_to_s.getVector3fMap ().dot (target_normal.getNormalVector3fMap ());
+  dot_p_source = unitvec_t_to_s.getVector3fMap ().dot (source_centroid.getNormalVector3fMap ());
+  dot_p_target = unitvec_t_to_s.getVector3fMap ().dot (target_centroid.getNormalVector3fMap ());
 
   pcl::Normal ncross;
-  ncross.getNormalVector3fMap () = source_normal.getNormalVector3fMap ().cross (target_normal.getNormalVector3fMap ());
+  ncross.getNormalVector3fMap () = source_centroid.getNormalVector3fMap ().cross (target_centroid.getNormalVector3fMap ());
 
   /// Smoothness Check: Check if there is a step between adjacent patches
   if (use_smoothness_check_)
   {
     float expected_distance = ncross.getNormalVector3fMap ().norm () * seed_resolution_;
-    float dot_p_1 = vec_t_to_s.getVector3fMap ().dot (source_normal.getNormalVector3fMap ());
-    float dot_p_2 = vec_s_to_t.getVector3fMap ().dot (target_normal.getNormalVector3fMap ());
+    float dot_p_1 = vec_t_to_s.getVector3fMap ().dot (source_centroid.getNormalVector3fMap ());
+    float dot_p_2 = vec_s_to_t.getVector3fMap ().dot (target_centroid.getNormalVector3fMap ());
     float point_dist = (std::fabs (dot_p_1) < std::fabs (dot_p_2)) ? std::fabs (dot_p_1) : std::fabs (dot_p_2);
     const float dist_smoothing = smoothness_threshold_ * voxel_resolution_;  // This is a slacking variable especially important for patches with very similar normals
 

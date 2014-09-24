@@ -304,7 +304,7 @@ LCCPSegmentation Parameters: \n\
   super.setColorImportance (color_importance);
   super.setSpatialImportance (spatial_importance);
   super.setNormalImportance (normal_importance);
-  std::map<uint32_t, pcl::Supervoxel<PointT>::Ptr> supervoxel_clusters;
+  std::map<uint32_t, pcl::Supervoxel::Ptr> supervoxel_clusters;
 
   PCL_INFO ("Extracting supervoxels\n");
   super.extract (supervoxel_clusters);
@@ -444,13 +444,13 @@ LCCPSegmentation Parameters: \n\
         colors->InsertNextTupleValue (color);
         colors->InsertNextTupleValue (color);
         
-        pcl::Supervoxel<PointT>::Ptr supervoxel = supervoxel_clusters.at (sv_label);
-        pcl::PointXYZRGBA vert_curr = supervoxel->centroid_;    
+        pcl::Supervoxel::Ptr supervoxel = supervoxel_clusters.at (sv_label);
+        pcl::Supervoxel::CentroidT vert_curr = supervoxel->centroid_;    
         
         
         const uint32_t sv_neighbor_label = sv_adjacency_list[*itr_neighbor];        
-        pcl::Supervoxel<PointT>::Ptr supervoxel_neigh = supervoxel_clusters.at (sv_neighbor_label);
-        pcl::PointXYZRGBA vert_neigh = supervoxel_neigh->centroid_;
+        pcl::Supervoxel::Ptr supervoxel_neigh = supervoxel_clusters.at (sv_neighbor_label);
+        pcl::Supervoxel::CentroidT vert_neigh = supervoxel_neigh->centroid_;
           
         
         points->InsertNextPoint (vert_curr.data);
