@@ -355,6 +355,9 @@ namespace pcl
       void
       createSupervoxelHelpers (std::vector<int> &seed_indices);
       
+      void
+      shiftCentersAwayFromEdges ();
+
       /** \brief This performs the superpixel evolution */
       void
       expandSupervoxels (int depth);
@@ -448,6 +451,9 @@ namespace pcl
           void 
           expand ();
           
+          void
+          expandPreferred ();
+
           void 
           refineNormals ();
           
