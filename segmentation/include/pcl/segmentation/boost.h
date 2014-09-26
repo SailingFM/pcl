@@ -51,6 +51,7 @@
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/multi_array.hpp>
 #include <boost/ptr_container/ptr_list.hpp>
+#include <boost/heap/fibonacci_heap.hpp>
 
 #if (BOOST_VERSION >= 104400) 
   #include <boost/graph/boykov_kolmogorov_max_flow.hpp>

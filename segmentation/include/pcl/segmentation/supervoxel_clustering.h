@@ -354,9 +354,6 @@ namespace pcl
        */
       void
       createSupervoxelHelpers (std::vector<int> &seed_indices);
-      
-      void
-      shiftCentersAwayFromEdges ();
 
       /** \brief This performs the superpixel evolution */
       void
@@ -451,9 +448,6 @@ namespace pcl
           void 
           expand ();
           
-          void
-          expandPreferred ();
-
           void 
           refineNormals ();
           
@@ -497,11 +491,22 @@ namespace pcl
           EIGEN_MAKE_ALIGNED_OPERATOR_NEW
       };
       
+      struct SeedNHood;
+      struct SeedNHoodIncreasingOrder
+      {
+        //! greater than comparison function for sorting
+        bool operator() (const boost::shared_ptr<SeedNHood> &lhs, const boost::shared_ptr<SeedNHood> &rhs) const 
+        {
+          return (lhs->num_active_ < rhs->num_active_);
+        }
+      };
+      
       /** \brief Local helper class used for removing seeds from within neighborhood of other seeds
        */
       struct SeedNHood
       {
         typedef boost::shared_ptr<SeedNHood> Ptr;
+        typedef boost::heap::fibonacci_heap<typename SeedNHood::Ptr, boost::heap::compare<SeedNHoodIncreasingOrder> > SeedPriorityQueue;
         //! Index into seed_cloud_
         int seed_idx_;
         //! Index into voxel_centroid_cloud_
@@ -510,12 +515,13 @@ namespace pcl
         int num_active_;
         //! seed_idx_ indices of seeds within radius
         std::vector<int> neighbor_indices_;
-        //! greater than comparison function for sorting
-        bool operator() (const Ptr &lhs, const Ptr &rhs) const 
-        {
-          return (lhs->num_active_ > rhs->num_active_);
-        }
+
+        typename SeedPriorityQueue::handle_type handle_;
+        
+        
       };
+      
+
       //Make boost::ptr_list can access the private class SupervoxelHelper
       friend void boost::checked_delete<> (const typename pcl::SupervoxelClustering<PointT>::SupervoxelHelper *);
       
