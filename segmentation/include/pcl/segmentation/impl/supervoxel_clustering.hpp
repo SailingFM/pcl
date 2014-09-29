@@ -148,9 +148,13 @@ pcl::SupervoxelClustering<PointT>::refineSupervoxels (int num_itr, std::map<uint
   int max_depth = static_cast<int> (sqrt(3)*seed_resolution_/resolution_);
   for (int i = 0; i < num_itr; ++i)
   {
-    for (typename HelperListT::iterator sv_itr = supervoxel_helpers_.begin (); sv_itr != supervoxel_helpers_.end (); ++sv_itr)
+    //Don't refine normals if they were input
+    if (!pcl::traits::has_normal<PointT>::value || ignore_input_normals_)
     {
-      sv_itr->refineNormals ();
+      for (typename HelperListT::iterator sv_itr = supervoxel_helpers_.begin (); sv_itr != supervoxel_helpers_.end (); ++sv_itr)
+      {
+        sv_itr->refineNormals ();
+      }
     }
     reseedSupervoxels ();
     expandSupervoxels (max_depth);
