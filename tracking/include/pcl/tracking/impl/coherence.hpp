@@ -10,7 +10,7 @@ namespace pcl
   {
     
     template <typename PointInT> double
-    PointCoherence<PointInT>::compute (PointInT &source, PointInT &target)
+    PointCoherence<PointInT>::compute (const PointInT &source, const PointInT &target)
     {
       return computeCoherence (source, target);
     }
@@ -54,6 +54,23 @@ namespace pcl
         return;
       }
       computeCoherence (cloud, indices, w);
+    }
+    
+    template <typename PointInT> void
+    PointCloudCoherence<PointInT>::compute (const PointCloudInConstPtr &cloud, const Eigen::Affine3f &trans, float &w)
+    {
+      if (!initCompute ())
+      {
+        PCL_ERROR ("[pcl::%s::compute] Init failed.\n", getClassName ().c_str ());
+        return;
+      }
+      computeCoherence (cloud, trans, w);
+    }
+    
+    template <typename PointInT> void
+    PointCloudCoherence<PointInT>::computeCoherence (const PointCloudInConstPtr &, const Eigen::Affine3f &, float &)
+    {
+      
     }
   }
 }

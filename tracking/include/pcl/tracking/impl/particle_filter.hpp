@@ -26,7 +26,7 @@ pcl::tracking::ParticleFilterTracker<PointInT, StateT>::initCompute ()
     }
   }
 
-  coherence_->setTargetCloud (input_);
+  //coherence_->setTargetCloud (input_);
 
   if (!change_detector_)
     change_detector_ = boost::shared_ptr<pcl::octree::OctreePointCloudChangeDetector<PointInT> >(new pcl::octree::OctreePointCloudChangeDetector<PointInT> (change_detector_resolution_));
@@ -240,7 +240,7 @@ pcl::tracking::ParticleFilterTracker<PointInT, StateT>::weight ()
     PointCloudInPtr coherence_input (new PointCloudIn);
     cropInputPointCloud (input_, *coherence_input);
     
-    coherence_->setTargetCloud (coherence_input);
+    //coherence_->setTargetCloud (coherence_input);
     coherence_->initCompute ();
     for (size_t i = 0; i < particles_->points.size (); i++)
     {
@@ -259,7 +259,7 @@ pcl::tracking::ParticleFilterTracker<PointInT, StateT>::weight ()
     PointCloudInPtr coherence_input (new PointCloudIn);
     cropInputPointCloud (input_, *coherence_input);
     
-    coherence_->setTargetCloud (coherence_input);
+    //coherence_->setTargetCloud (coherence_input);
     coherence_->initCompute ();
     for (size_t i = 0; i < particles_->points.size (); i++)
     {

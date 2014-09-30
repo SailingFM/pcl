@@ -142,7 +142,7 @@ namespace pcl
    
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
     template <typename PointInT> double
-    HSVColorCoherence<PointInT>::computeCoherence (PointInT &source, PointInT &target)
+    HSVColorCoherence<PointInT>::computeCoherence (const PointInT &source,const PointInT &target)
     {
       // convert color space from RGB to HSV
       RGBValue source_rgb, target_rgb;

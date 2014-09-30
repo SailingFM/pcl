@@ -77,7 +77,7 @@ namespace pcl
           * \param[in] target instance of target point.
           */
         double 
-        computeCoherence (PointInT &source, PointInT &target);
+        computeCoherence (const PointInT &source,const PointInT &target);
 
         /** \brief the weight of coherence (w) */
         double weight_;

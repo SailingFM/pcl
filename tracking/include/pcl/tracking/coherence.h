@@ -32,7 +32,7 @@ namespace pcl
         * \param target instance of target point.
         */
       inline double
-      compute (PointInT &source, PointInT &target);
+      compute (const PointInT &source, const PointInT &target);
 
     protected:
 
@@ -44,7 +44,7 @@ namespace pcl
         * \param[in] target instance of target point.
         */
       virtual double 
-      computeCoherence (PointInT &source, PointInT &target) = 0;
+      computeCoherence (const PointInT &source,const PointInT &target) = 0;
 
       /** \brief Get a string representation of the name of this class. */
       inline const std::string& 
@@ -78,6 +78,10 @@ namespace pcl
       inline void
       compute (const PointCloudInConstPtr &cloud, const IndicesConstPtr &indices,
                float &w_i);
+      
+       /** \brief compute coherence between two pointclouds after applying trans to points in cloud */
+      inline void
+      compute (const PointCloudInConstPtr &cloud, const Eigen::Affine3f &trans, float &w_j);
 
       /** \brief get a list of pcl::tracking::PointCoherence.*/
       inline std::vector<PointCoherencePtr>
@@ -108,6 +112,12 @@ namespace pcl
       /** \brief Abstract method to compute coherence. */
       virtual void
       computeCoherence (const PointCloudInConstPtr &cloud, const IndicesConstPtr &indices, float &w_j) = 0;
+      
+      /** \brief Compute coherence using a transform inside - useful if we only test a subset of points. 
+           \note This base implementation is empty.
+      */
+      virtual void
+      computeCoherence (const PointCloudInConstPtr &cloud, const Eigen::Affine3f &trans, float &w_j);
       
       inline double calcPointCoherence (PointInT &source, PointInT &target);
       

@@ -24,9 +24,9 @@ namespace pcl
         pair.first->indices_.push_back (target_idx);
       }
       
-      std::cout <<"Size of Strata:\n";
-      for (StrataItr strata_itr = strata_indices_.begin (); strata_itr != strata_indices_.end (); ++strata_itr)
-        std::cout <<strata_itr->stratum_label_<<"  has size "<<strata_itr->indices_.size ()<<"\n";
+      //std::cout <<"Size of Strata:\n";
+      //for (StrataItr strata_itr = strata_indices_.begin (); strata_itr != strata_indices_.end (); ++strata_itr)
+      //  std::cout <<strata_itr->stratum_label_<<"  has size "<<strata_itr->indices_.size ()<<"\n";
     }
     
     template <typename PointInT> void
@@ -40,9 +40,9 @@ namespace pcl
         pair.first->indices_.push_back (target_idx);
       }
       
-      std::cout <<"Size of Strata:\n";
-      for (StrataItr strata_itr = strata_indices_.begin (); strata_itr != strata_indices_.end (); ++strata_itr)
-        std::cout <<strata_itr->stratum_label_<<"  has size "<<strata_itr->indices_.size ()<<"\n";
+      //std::cout <<"Size of Strata:\n";
+      //for (StrataItr strata_itr = strata_indices_.begin (); strata_itr != strata_indices_.end (); ++strata_itr)
+      //  std::cout <<strata_itr->stratum_label_<<"  has size "<<strata_itr->indices_.size ()<<"\n";
     }
     
     
@@ -55,7 +55,6 @@ namespace pcl
       std::vector<float> k_distances(1);
       double max_dist_squared = maximum_distance_ * maximum_distance_;
       PointInT test_pt; 
-      //std::cout << "====INDICES GENERATED:====\n";
       //Iterate through strata, drawing num_samples_ samples from each one uniformly.
       for (StrataItr strata_itr = strata_indices_.begin (); strata_itr != strata_indices_.end (); ++strata_itr)
       {
@@ -72,6 +71,7 @@ namespace pcl
           search_->nearestKSearch (test_pt, 1, k_indices, k_distances);
           //TODO Change this is dumb dumb dumb - copy all the time?!?!
           PointInT target_point = target_input_->points[k_indices[0]];
+          
           if (k_distances[0] < max_dist_squared)
           {
             double coherence_val = 1.0;
@@ -86,20 +86,45 @@ namespace pcl
         }
       }
       w = - static_cast<float> (val);
+      
     }
 
-    template <typename PointInT> bool
-    StratifiedPointCloudCoherence<PointInT>::initCompute ()
+    template <typename PointInT> void
+    StratifiedPointCloudCoherence<PointInT>::computeCoherence (
+      const PointCloudInConstPtr &cloud,  const Eigen::Affine3f &trans, float &w)
     {
-      if (!PointCloudCoherence<PointInT>::initCompute ())
+      double val = 0.0;
+      std::vector<int> k_indices(1);
+      std::vector<float> k_distances(1);
+      double max_dist_squared = maximum_distance_ * maximum_distance_;
+      //Iterate through strata, drawing num_samples_ samples from each one uniformly.
+      for (StrataItr strata_itr = strata_indices_.begin (); strata_itr != strata_indices_.end (); ++strata_itr)
       {
-        PCL_ERROR ("[pcl::%s::initCompute] PointCloudCoherence::Init failed.\n", getClassName ().c_str ());
-        return (false);
+        boost::uniform_int<int> index_dist(0, strata_itr->indices_.size ()-1);
+        
+        for (int i = 0; i < num_samples_; ++i)
+        {
+          int rnd_num = index_dist (rng_);
+          size_t idx = strata_itr->indices_[rnd_num];
+          PointInT test_pt = cloud->points[idx];
+          test_pt.getVector3fMap () = trans * test_pt.getVector3fMap ();
+          search_->nearestKSearch (test_pt, 1, k_indices, k_distances);
+          if (k_distances[0] < max_dist_squared)
+          {
+            double coherence_val = 1.0;
+            for (size_t k = 0; k < point_coherences_.size (); k++)
+            {
+              PointCoherencePtr coherence = point_coherences_[k];
+              double w = coherence->compute (cloud->points[idx], target_input_->points[k_indices[0]]);
+              coherence_val *= w;
+            }
+            val += coherence_val;
+          }
+        }
       }
+      w = - static_cast<float> (val);
       
-      return true;
     }
-    
   }
 }
 

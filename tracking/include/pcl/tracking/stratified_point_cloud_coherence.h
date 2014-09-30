@@ -5,6 +5,7 @@
 #include <pcl/search/octree.h>
 #include <pcl/tracking/nearest_pair_point_cloud_coherence.h>
 #include <pcl/tracking/boost.h>
+#include <boost/graph/graph_concepts.hpp>
 
 namespace pcl
 {
@@ -56,13 +57,20 @@ namespace pcl
       {
         num_samples_ = num_samples;
       }
-    protected:
-      /** \brief This method should get called before starting the actual computation. */
-      virtual bool initCompute ();
       
+      int 
+      getNumStrata ()
+      {
+        return strata_indices_.size ();
+      }
+
+    protected:
       /** \brief compute the nearest pairs and compute coherence using point_coherences_ */
       virtual void
       computeCoherence (const PointCloudInConstPtr &cloud, const IndicesConstPtr &indices, float &w_j);
+      
+      void
+      computeCoherence (const PointCloudInConstPtr &cloud,  const Eigen::Affine3f &trans, float &w);
 
       //! Number of Samples per stratum - default = 1
       int num_samples_;

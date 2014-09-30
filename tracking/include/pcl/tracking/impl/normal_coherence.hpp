@@ -6,7 +6,7 @@
 #include <pcl/tracking/normal_coherence.h>
 
 template <typename PointInT> double 
-pcl::tracking::NormalCoherence<PointInT>::computeCoherence (PointInT &source, PointInT &target)
+pcl::tracking::NormalCoherence<PointInT>::computeCoherence (const PointInT &source,const PointInT &target)
 {
     Eigen::Vector4f n = source.getNormalVector4fMap ();
     Eigen::Vector4f n_dash = target.getNormalVector4fMap ();
