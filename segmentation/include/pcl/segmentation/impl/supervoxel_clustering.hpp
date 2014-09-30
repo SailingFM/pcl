@@ -293,9 +293,11 @@ pcl::SupervoxelClustering<PointT>::makeSupervoxels (std::map<uint32_t,typename S
   for (typename HelperListT::iterator sv_itr = supervoxel_helpers_.begin (); sv_itr != supervoxel_helpers_.end (); ++sv_itr)
   {
     uint32_t label = sv_itr->getLabel ();
-    supervoxel_clusters[label].reset (new Supervoxel);
-    sv_itr->getCentroid (supervoxel_clusters[label]->centroid_);
-    sv_itr->getVoxels (supervoxel_clusters[label]->voxels_);
+    std::pair<std::map<uint32_t,typename Supervoxel::Ptr>::iterator,bool> ret;
+    ret = supervoxel_clusters.insert (std::pair<uint32_t,typename Supervoxel::Ptr> (label, boost::make_shared<Supervoxel> (label)));
+    std::map<uint32_t,typename Supervoxel::Ptr>::iterator new_supervoxel_itr = ret.first;
+    sv_itr->getCentroid (new_supervoxel_itr->second->centroid_);
+    sv_itr->getVoxels (new_supervoxel_itr->second->voxels_);
   }
   //Make sure that color vector is big enough
   initializeLabelColors ();

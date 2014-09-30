@@ -66,40 +66,43 @@ namespace pcl
     public:
       typedef pcl::PointXYZRGBNormal CentroidT;
       typedef pcl::PointXYZRGBNormal VoxelT;
-      
-      Supervoxel () :
-        voxels_ (new pcl::PointCloud<VoxelT> ())
-        {  } 
-      
+
+      Supervoxel (uint32_t label = -1) :
+      label_ (label),
+      voxels_ (new pcl::PointCloud<VoxelT> ())
+      {  } 
+
       typedef boost::shared_ptr<Supervoxel> Ptr;
       typedef boost::shared_ptr<const Supervoxel> ConstPtr;
 
       /** \brief Gets the centroid of the supervoxel
-       *  \param[out] centroid_arg centroid of the supervoxel
-       */ 
+      *  \param[out] centroid_arg centroid of the supervoxel
+      */ 
       template <typename PointOutT>
       void
       getCentroidPoint (PointOutT &centroid_arg)
       {
         copyPoint (centroid_, centroid_arg);
       }
-      
+
       /** \brief Gets the point normal for the supervoxel 
-       * \param[out] normal_arg Point normal of the supervoxel
-       * \note This isn't an average, it is a normal computed using all of the voxels in the supervoxel as support
-       */ 
+      * \param[out] normal_arg Point normal of the supervoxel
+      * \note This isn't an average, it is a normal computed using all of the voxels in the supervoxel as support
+      */ 
       void
       getCentroidPointNormal (PointNormal &normal_arg)
       {
         copyPoint (centroid_, normal_arg);
       }
-      
+
+      /** \brief The label ID of this supervoxel */
+      uint32_t label_;
       /** \brief The centroid of the supervoxel */
       CentroidT centroid_;
       /** \brief A Pointcloud of the voxels in the supervoxel */
       pcl::PointCloud<VoxelT>::Ptr voxels_;
     public:
-      EIGEN_MAKE_ALIGNED_OPERATOR_NEW  
+      EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   };
   
   /** \brief Implements a supervoxel algorithm based on voxel structure, normals, and rgb values
