@@ -3,6 +3,7 @@
 
 #include <pcl/search/search.h>
 #include <pcl/search/octree.h>
+#include <pcl/segmentation/supervoxel_clustering.h>
 #include <pcl/tracking/nearest_pair_point_cloud_coherence.h>
 #include <pcl/tracking/boost.h>
 #include <boost/graph/graph_concepts.hpp>
@@ -39,23 +40,37 @@ namespace pcl
       /** \brief empty constructor */
       StratifiedPointCloudCoherence () : 
         NearestPairPointCloudCoherence<PointInT> (),
-        num_samples_ (1)
+        num_samples_ (1),
+        threads_ (1)
       {
         coherence_name_ = "StratifiedPointCloudCoherence";
         rng_.seed (static_cast<unsigned int>(std::time(0))+seed_inc_);
         seed_inc_ += 17;
       }
+      /** \brief compute coherence between two pointclouds after applying trans to points in cloud */
+      inline void
+      compute (const PointCloudInConstPtr &cloud, const Eigen::Affine3f &trans, float &w_j);
+      
+      inline bool
+      initCompute ();
       
       void
-      setStrata (const std::vector<uint32_t> &strata_labels);
-      
-      void
-      setStrata (typename LabelCloudT::ConstPtr strata_label_cloud);
+      setStrata (const std::vector<pcl::Supervoxel::Ptr> &supervoxels);
       
       void 
       setNumSamplesPerStratum (int num_samples)
       {
         num_samples_ = num_samples;
+        for (StrataItr strata_itr = strata_indices_.begin (); strata_itr != strata_indices_.end (); ++strata_itr)
+        {
+          strata_itr->sampled_.resize (num_samples);
+        }
+      }
+      
+      void
+      setNumThreads (int num_threads)
+      {
+        threads_ = num_threads;
       }
       
       int 
@@ -64,6 +79,19 @@ namespace pcl
         return strata_indices_.size ();
       }
 
+      void
+      applyWeightToStrata (float weight);
+      
+      //! \brief Just used for debugging TODO REMOVE
+      void
+      printVoxelWeights ();
+      
+      void
+      clearSupervoxelWeights ();
+      
+      void 
+      normalizeSupervoxelWeights ();
+      
     protected:
       /** \brief compute the nearest pairs and compute coherence using point_coherences_ */
       virtual void
@@ -78,13 +106,27 @@ namespace pcl
       boost::mt19937 rng_;
       //! Used to increment seed generator across instances of this class
       static int seed_inc_;
+      
+      int threads_;
+      
       struct StratumHelper
       {
-        StratumHelper (int stratum_label): stratum_label_(stratum_label) {}
+        StratumHelper (const Supervoxel::Ptr &supervoxel): 
+          supervoxel_ (supervoxel),
+          stratum_label_ (supervoxel->label_)
+        { }
+        
+        StratumHelper (int stratum_label): 
+          stratum_label_ (stratum_label)
+        { }
+        
+        Supervoxel::Ptr supervoxel_;
         //! Indices of points in target_input_ which belong to this stratum
-        std::vector<size_t> indices_;
+        std::pair<size_t,size_t> index_range_;
         //! Stratum Label
         int stratum_label_;
+
+        std::vector<size_t> sampled_;
         
         bool operator< (const StratumHelper &r) const
         {
@@ -92,9 +134,9 @@ namespace pcl
         }
       };
 
-      typedef typename boost::ptr_set<StratumHelper>::iterator StrataItr;
+      typedef typename boost::ptr_vector<StratumHelper>::iterator StrataItr;
       typedef std::pair<StrataItr, bool> StrataItrBoolPair;
-      boost::ptr_set<StratumHelper> strata_indices_;
+      boost::ptr_vector<StratumHelper> strata_indices_;
     };
   }
 }

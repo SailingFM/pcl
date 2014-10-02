@@ -45,6 +45,6 @@
 #endif
 
 #include <boost/random.hpp>
-#include <boost/ptr_container/ptr_set.hpp>
+#include <boost/ptr_container/ptr_vector.hpp>
 
 #endif    // PCL_TRACKING_BOOST_H_

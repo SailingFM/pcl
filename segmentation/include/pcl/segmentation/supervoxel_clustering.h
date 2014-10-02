@@ -46,6 +46,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/common/centroid.h>
+#include <pcl/common/io.h>
 #include <pcl/octree/octree.h>
 #include <pcl/octree/octree_pointcloud_adjacency.h>
 #include <pcl/search/search.h>
@@ -68,8 +69,8 @@ namespace pcl
       typedef pcl::PointXYZRGBNormal VoxelT;
 
       Supervoxel (uint32_t label = -1) :
-      label_ (label),
-      voxels_ (new pcl::PointCloud<VoxelT> ())
+        label_ (label),
+        voxels_ (new pcl::PointCloud<VoxelT> ())
       {  } 
 
       typedef boost::shared_ptr<Supervoxel> Ptr;
@@ -101,6 +102,9 @@ namespace pcl
       CentroidT centroid_;
       /** \brief A Pointcloud of the voxels in the supervoxel */
       pcl::PointCloud<VoxelT>::Ptr voxels_;
+      
+      //! \brief Maps voxel index to measured weight - used by tracking
+      std::map <size_t, float> voxel_weight_map_;
     public:
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   };
@@ -131,8 +135,8 @@ namespace pcl
       class VoxelData
       {
         public:
-          VoxelData ():
-            distance_ (std::numeric_limits<float>::max ()),
+          VoxelData (float initial_distance = std::numeric_limits<float>::max ()):
+            distance_ (initial_distance),
             idx_ (-1),
             owner_ (0)
             {
@@ -164,7 +168,8 @@ namespace pcl
       
       typedef pcl::octree::OctreePointCloudAdjacencyContainer<PointT, VoxelData> LeafContainerT;
       typedef std::vector <LeafContainerT*> LeafVectorT;
-      
+      typedef std::map<uint32_t,typename Supervoxel::Ptr> SupervoxelMapT;
+
       typedef typename pcl::PointCloud<PointT> PointCloudT;
       typedef typename pcl::PointCloud<VoxelT> VoxelCloudT;
       typedef typename pcl::PointCloud<Normal> NormalCloudT;
@@ -329,6 +334,16 @@ namespace pcl
       int
       getMaxLabel () const;
       
+      /** \brief This function builds the voxel cloud using the adjacency octree 
+       *  \note These are built automatically by extract, so this is only needed if you won't be calling extract.
+       */
+      void
+      buildVoxelCloud ();
+      
+      /** \brief This function builds new supervoxels which are conditioned on the voxel_weight_maps contained in supervoxel_clusters 
+      */
+      void
+      extractNewConditionedSupervoxels (SupervoxelMapT &supervoxel_clusters);
     private:
       
       /** \brief This method initializes the label_colors_ vector (assigns random colors to labels)
@@ -356,8 +371,11 @@ namespace pcl
        *  \param[in] seed_indices Indices of the leaves to use as seeds
        */
       void
-      createSupervoxelHelpers (std::vector<int> &seed_indices);
-
+      createHelpersFromSeedIndices (std::vector<int> &seed_indices);
+      
+      void
+      createHelpersFromWeightMaps (SupervoxelMapT &supervoxel_clusters, std::vector<size_t> &updated_seed_indices);
+      
       /** \brief This performs the superpixel evolution */
       void
       expandSupervoxels (int depth);
