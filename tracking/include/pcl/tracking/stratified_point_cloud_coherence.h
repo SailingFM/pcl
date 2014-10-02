@@ -3,7 +3,7 @@
 
 #include <pcl/search/search.h>
 #include <pcl/search/octree.h>
-#include <pcl/segmentation/supervoxel_clustering.h>
+#include <pcl/segmentation/sequential_supervoxel_clustering.h>
 #include <pcl/tracking/nearest_pair_point_cloud_coherence.h>
 #include <pcl/tracking/boost.h>
 #include <boost/graph/graph_concepts.hpp>
@@ -55,7 +55,7 @@ namespace pcl
       initCompute ();
       
       void
-      setStrata (const std::vector<pcl::Supervoxel::Ptr> &supervoxels);
+      setStrata (const std::vector<pcl::SequentialSV::Ptr> &supervoxels);
       
       void 
       setNumSamplesPerStratum (int num_samples)
@@ -111,7 +111,7 @@ namespace pcl
       
       struct StratumHelper
       {
-        StratumHelper (const Supervoxel::Ptr &supervoxel): 
+        StratumHelper (const SequentialSV::Ptr &supervoxel): 
           supervoxel_ (supervoxel),
           stratum_label_ (supervoxel->label_)
         { }
@@ -120,7 +120,7 @@ namespace pcl
           stratum_label_ (stratum_label)
         { }
         
-        Supervoxel::Ptr supervoxel_;
+        SequentialSV::Ptr supervoxel_;
         //! Indices of points in target_input_ which belong to this stratum
         std::pair<size_t,size_t> index_range_;
         //! Stratum Label

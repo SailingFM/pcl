@@ -1,8 +1,6 @@
 #ifndef PCL_TRACKING_IMPL_STRATIFIED_POINT_CLOUD_COHERENCE_H_
 #define PCL_TRACKING_IMPL_STRATIFIED_POINT_CLOUD_COHERENCE_H_
 
-#include <algorithm>
-
 #include <pcl/search/octree.h>
 #include <pcl/tracking/stratified_point_cloud_coherence.h>
 
@@ -14,7 +12,7 @@ namespace pcl
     int StratifiedPointCloudCoherence<PointInT>::seed_inc_ = 0;
     
     template <typename PointInT> void
-    StratifiedPointCloudCoherence<PointInT>::setStrata (const std::vector<pcl::Supervoxel::Ptr> &supervoxels)
+    StratifiedPointCloudCoherence<PointInT>::setStrata (const std::vector<pcl::SequentialSV::Ptr> &supervoxels)
     {
       size_t idx_start = 0, idx_end;
       //Create the strata helpers

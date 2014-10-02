@@ -41,3 +41,7 @@
 #include <pcl/segmentation/impl/lccp_segmentation.hpp>
 
 PCL_INSTANTIATE(LCCPSegmentation, (pcl::PointXYZ)(pcl::PointXYZRGB)(pcl::PointXYZRGBA)(pcl::PointXYZRGBNormal))
+
+template void pcl::LCCPSegmentation<pcl::PointXYZRGBA>::segment<pcl::Supervoxel>(std::map<uint32_t,boost::shared_ptr<pcl::Supervoxel> > &, std::multimap<uint32_t, uint32_t> &);
+template void pcl::LCCPSegmentation<pcl::PointXYZRGBA>::segment<pcl::SequentialSV>(std::map<uint32_t,boost::shared_ptr<pcl::SequentialSV> > &, std::multimap<uint32_t, uint32_t> &);
+

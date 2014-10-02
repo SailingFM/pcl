@@ -224,15 +224,29 @@ pcl::LCCPSegmentation<PointT>::removeSmallSegments (uint32_t min_segment_size_ar
   }
 }
 
-template <typename PointT> void
-pcl::LCCPSegmentation<PointT>::prepareSegmentation (const std::map<uint32_t, typename pcl::Supervoxel::Ptr>& supervoxel_clusters_arg,
+template <typename PointT>
+template <typename SupervoxelT> 
+typename boost::enable_if<boost::is_base_of<pcl::Supervoxel, SupervoxelT>, void>::type
+pcl::LCCPSegmentation<PointT>::setSupervoxelMap (const std::map<uint32_t, boost::shared_ptr<SupervoxelT> >& supervoxel_clusters_arg)
+{
+  typename std::map<uint32_t, boost::shared_ptr<SupervoxelT> >::const_iterator sv_map_itr = supervoxel_clusters_arg.begin ();
+  for ( ; sv_map_itr != supervoxel_clusters_arg.end (); ++sv_map_itr)
+  {
+    sv_label_to_supervoxel_map_ [sv_map_itr->first] = sv_map_itr->second;
+  }
+}
+
+template <typename PointT>
+template <typename SupervoxelT>
+void
+pcl::LCCPSegmentation<PointT>::prepareSegmentation (const std::map<uint32_t, boost::shared_ptr<SupervoxelT> >& supervoxel_clusters_arg,
                                                     const std::multimap<boost::uint32_t, boost::uint32_t>& label_adjaceny_arg)
 {
   // Clear internal data
   reset ();
 
   // Copy map with supervoxel pointers
-  sv_label_to_supervoxel_map_ = supervoxel_clusters_arg;
+  setSupervoxelMap (supervoxel_clusters_arg);
 
   ///    Build a boost adjacency list from the adjacency multimap
   std::map<uint32_t, VertexID> label_ID_map;
@@ -270,8 +284,8 @@ pcl::LCCPSegmentation<PointT>::prepareSegmentation (const std::map<uint32_t, typ
   }
 }
 
-template <typename PointT> void
-pcl::LCCPSegmentation<PointT>::segment (std::map<uint32_t, typename pcl::Supervoxel::Ptr>& supervoxel_clusters_arg,
+template <typename PointT> template <typename SupervoxelT> void
+pcl::LCCPSegmentation<PointT>::segment (std::map<uint32_t, boost::shared_ptr<SupervoxelT> > &supervoxel_clusters_arg,
                                         std::multimap<boost::uint32_t, boost::uint32_t>& label_adjacency_arg)
 {
   /// Initialization

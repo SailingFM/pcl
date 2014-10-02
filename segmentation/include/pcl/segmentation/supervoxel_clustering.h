@@ -68,7 +68,7 @@ namespace pcl
       typedef pcl::PointXYZRGBNormal CentroidT;
       typedef pcl::PointXYZRGBNormal VoxelT;
 
-      Supervoxel (uint32_t label = -1) :
+      Supervoxel (uint32_t label = 0) :
         label_ (label),
         voxels_ (new pcl::PointCloud<VoxelT> ())
       {  } 
@@ -102,9 +102,7 @@ namespace pcl
       CentroidT centroid_;
       /** \brief A Pointcloud of the voxels in the supervoxel */
       pcl::PointCloud<VoxelT>::Ptr voxels_;
-      
-      //! \brief Maps voxel index to measured weight - used by tracking
-      std::map <size_t, float> voxel_weight_map_;
+
     public:
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   };
@@ -122,9 +120,10 @@ namespace pcl
   template <typename PointT>
   class PCL_EXPORTS SupervoxelClustering : public pcl::PCLBase<PointT>
   {
-    //Forward declaration of friended helper class
-    class SupervoxelHelper;
-    friend class SupervoxelHelper;
+    protected:
+      //Forward declaration of friended helper class
+      class SupervoxelHelper;
+      friend class SupervoxelHelper;
     
     public:
       typedef typename Supervoxel::CentroidT CentroidT;
@@ -236,7 +235,7 @@ namespace pcl
        */
       void
       setIgnoreInputNormals (bool val);
-      
+
       /** \brief This method launches the segmentation algorithm and returns the supervoxels that were
        * obtained during the segmentation.
        * \param[out] supervoxel_clusters A map of labels to pointers to supervoxel structures
@@ -249,7 +248,7 @@ namespace pcl
        */
       virtual void
       setInputCloud (const typename pcl::PointCloud<PointT>::ConstPtr& cloud);
-      
+
       /** \brief This method sets the normals to be used for supervoxels (should be same size as input cloud)
        * \param[in] cloud The input normals                         
        */
@@ -257,14 +256,14 @@ namespace pcl
       virtual void
       setNormalCloud (typename NormalCloudT::ConstPtr)
       { }
-      
+
       /** \brief This method refines the calculated supervoxels - may only be called after extract
        * \param[in] num_itr The number of iterations of refinement to be done (2 or 3 is usually sufficient)
        * \param[out] supervoxel_clusters The resulting refined supervoxels
        */
       virtual void
       refineSupervoxels (int num_itr, std::map<uint32_t,typename Supervoxel::Ptr > &supervoxel_clusters);
-      
+
       ////////////////////////////////////////////////////////////
       /** \brief Returns an RGB colorized cloud showing superpixels
         * Otherwise it returns an empty pointer.
@@ -275,7 +274,7 @@ namespace pcl
         */
       typename pcl::PointCloud<PointXYZRGBA>::Ptr
       getColoredCloud () const;
-      
+
       /** \brief Returns a deep copy of the voxel centroid cloud */
       template<typename PointOutT>
       typename pcl::PointCloud<PointOutT>::Ptr
@@ -285,14 +284,14 @@ namespace pcl
         copyPointCloud (*voxel_centroid_cloud_, *centroid_copy);
         return centroid_copy;
       }
-      
+
       /** \brief Returns labeled cloud
         * Points that belong to the same supervoxel have the same label.
         * Labels for segments start from 1, unlabled points have label 0
         */
       typename pcl::PointCloud<PointXYZL>::Ptr
       getLabeledCloud () const;
-      
+
       /** \brief Returns an RGB colorized voxelized cloud showing superpixels
        * Otherwise it returns an empty pointer.
        * Points that belong to the same supervoxel have the same color.
@@ -302,11 +301,11 @@ namespace pcl
        */
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr
       getColoredVoxelCloud () const;
-      
+
       /** \brief Returns labeled voxelized cloud
        * Points that belong to the same supervoxel have the same label.
        * Labels for segments start from 1, unlabled points have label 0
-       */      
+       */
       pcl::PointCloud<pcl::PointXYZL>::Ptr
       getLabeledVoxelCloud () const;
 
@@ -315,13 +314,13 @@ namespace pcl
        */
       void
       getSupervoxelAdjacencyList (VoxelAdjacencyList &adjacency_list_arg) const;
-      
+
       /** \brief Get a multimap which gives supervoxel adjacency
        *  \param[out] label_adjacency Multi-Map which maps a supervoxel label to all adjacent supervoxel labels
        */
       void 
       getSupervoxelAdjacency (std::multimap<uint32_t, uint32_t> &label_adjacency) const;
-            
+
       /** \brief Static helper function which returns a pointcloud of normals for the input supervoxels 
        *  \param[in] supervoxel_clusters Supervoxel cluster map coming from this class
        *  \returns Cloud of PointNormals of the supervoxels
@@ -329,29 +328,18 @@ namespace pcl
        */
       static pcl::PointCloud<pcl::PointNormal>::Ptr
       makeSupervoxelNormalCloud (std::map<uint32_t,typename Supervoxel::Ptr > &supervoxel_clusters);
-      
+
       /** \brief Returns the current maximum (highest) label */
       int
       getMaxLabel () const;
-      
-      /** \brief This function builds the voxel cloud using the adjacency octree 
-       *  \note These are built automatically by extract, so this is only needed if you won't be calling extract.
-       */
-      void
-      buildVoxelCloud ();
-      
-      /** \brief This function builds new supervoxels which are conditioned on the voxel_weight_maps contained in supervoxel_clusters 
-      */
-      void
-      extractNewConditionedSupervoxels (SupervoxelMapT &supervoxel_clusters);
-    private:
-      
+
+    protected:
       /** \brief This method initializes the label_colors_ vector (assigns random colors to labels)
        * \note Checks to see if it is already big enough - if so, does not reinitialize it
        */
       void
       initializeLabelColors ();
-      
+
       /** \brief This method simply checks if it is possible to execute the segmentation algorithm with
         * the current settings. If it is possible then it returns true.
         */
@@ -363,19 +351,16 @@ namespace pcl
        */
       void
       selectInitialSupervoxelSeeds (std::vector<int> &seed_indices);
-      
+
       int 
       findNeighborMinCurvature (int idx);
-      
+
       /** \brief This method creates the internal supervoxel helpers based on the provided seed points
        *  \param[in] seed_indices Indices of the leaves to use as seeds
        */
       void
       createHelpersFromSeedIndices (std::vector<int> &seed_indices);
-      
-      void
-      createHelpersFromWeightMaps (SupervoxelMapT &supervoxel_clusters, std::vector<size_t> &updated_seed_indices);
-      
+
       /** \brief This performs the superpixel evolution */
       void
       expandSupervoxels (int depth);
@@ -383,18 +368,18 @@ namespace pcl
       /** \brief This sets the data of the voxels in the tree */
       void 
       computeVoxelData ();
-     
+
       /** \brief Reseeds the supervoxels by finding the voxel closest to current centroid */
       void
       reseedSupervoxels ();
-      
+
       /** \brief Constructs the map of supervoxel clusters from the internal supervoxel helpers */
       void
       makeSupervoxels (std::map<uint32_t,typename Supervoxel::Ptr > &supervoxel_clusters);
-      
+
       /** \brief Stores the resolution used in the octree */
       float resolution_;
-    
+
       /** \brief Stores the resolution used to seed the superpixels */
       float seed_resolution_;
       
@@ -538,10 +523,7 @@ namespace pcl
         std::vector<int> neighbor_indices_;
 
         typename SeedPriorityQueue::handle_type handle_;
-        
-        
       };
-      
 
       //Make boost::ptr_list can access the private class SupervoxelHelper
       friend void boost::checked_delete<> (const typename pcl::SupervoxelClustering<PointT>::SupervoxelHelper *);
