@@ -81,7 +81,7 @@ pcl::tracking::StratifiedParticleFilterOMPTracker<PointInT, StateT>::applyWeight
     coherences_[i]->applyWeightToStrata (particles_->points[i].weight);
   }
   coherences_[0]->normalizeSupervoxelWeights ();
-  //coherences_[0]->printVoxelWeights ();
+//  coherences_[0]->printVoxelWeights ();
 
 }
 
@@ -178,6 +178,32 @@ pcl::tracking::StratifiedParticleFilterOMPTracker<PointInT, StateT>::computeTrac
   }
 }
 
+template <typename PointInT, typename StateT> void
+pcl::tracking::StratifiedParticleFilterOMPTracker<PointInT, StateT>::updateStrata (std::map<uint32_t,typename SequentialSV::Ptr> &supervoxel_clusters)
+{
+  for (typename std::vector<StratCoherencePtr>::iterator coherence_itr = coherences_.begin(); coherence_itr!= coherences_.end (); ++coherence_itr)
+  {
+    (*coherence_itr)->updateStrata (supervoxel_clusters);
+  }
+  
+  std::map<uint32_t,typename SequentialSV::Ptr>::iterator sv_itr;
+  std::vector<uint32_t> labels;
+  coherences_[0]->getSVLabels (labels);
+  typename PointCloud <PointInT>::Ptr new_ref (new PointCloud <PointInT> ());
+  //Update model by creating new one.
+  for (std::vector<uint32_t>::iterator label_itr = labels.begin () ; label_itr != labels.end (); ++label_itr)
+  {
+    sv_itr = supervoxel_clusters.find (*label_itr);
+    PointCloud<PointInT> temp_rgb;
+    pcl::copyPointCloud (*(sv_itr->second)->voxels_, temp_rgb);
+    *new_ref += temp_rgb;
+  }
+  StateT result = this->getResult ();
+  Eigen::Affine3f transformation = this->toEigenMatrix (result);
+  typename PointCloud <PointInT>::Ptr transed_ref (new CloudInT);
+  pcl::transformPointCloud (*new_ref, *transed_ref, transformation.inverse());
+  this->setReferenceCloud (new_ref);
+}
 #define PCL_INSTANTIATE_StratifiedParticleFilterOMPTracker(T,ST) template class PCL_EXPORTS pcl::tracking::StratifiedParticleFilterOMPTracker<T,ST>;
 
 #endif //TRACKING_IMPL_STRATIFIED_PARTICLE_FILTER_OMP_HPP_

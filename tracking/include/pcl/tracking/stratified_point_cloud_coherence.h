@@ -92,6 +92,12 @@ namespace pcl
       void 
       normalizeSupervoxelWeights ();
       
+      void 
+      updateStrata (std::map<uint32_t,typename SequentialSV::Ptr> &supervoxel_clusters);
+      
+      void
+      getSVLabels (std::vector<uint32_t> &sv_labels);
+      
     protected:
       /** \brief compute the nearest pairs and compute coherence using point_coherences_ */
       virtual void
@@ -124,7 +130,7 @@ namespace pcl
         //! Indices of points in target_input_ which belong to this stratum
         std::pair<size_t,size_t> index_range_;
         //! Stratum Label
-        int stratum_label_;
+        uint32_t stratum_label_;
 
         std::vector<size_t> sampled_;
         
@@ -134,9 +140,9 @@ namespace pcl
         }
       };
 
-      typedef typename boost::ptr_vector<StratumHelper>::iterator StrataItr;
+      typedef typename boost::ptr_list<StratumHelper>::iterator StrataItr;
       typedef std::pair<StrataItr, bool> StrataItrBoolPair;
-      boost::ptr_vector<StratumHelper> strata_indices_;
+      boost::ptr_list<StratumHelper> strata_indices_;
     };
   }
 }

@@ -65,6 +65,7 @@
 
       //! \brief Maps voxel index to measured weight - used by tracking
       std::map <size_t, float> voxel_weight_map_;
+
     public:
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
    };
@@ -95,17 +96,24 @@
     protected:
       typedef typename SupervoxelClustering<PointT>::SupervoxelHelper SupervoxelHelper;
       friend class SupervoxelClustering<PointT>::SupervoxelHelper;
+      typedef typename SupervoxelClustering<PointT>::SeedNHood SeedNHood;
       
       using PCLBase <PointT>::initCompute;
       using PCLBase <PointT>::deinitCompute;
       using PCLBase <PointT>::input_;
+      using SupervoxelClustering<PointT>::use_single_camera_transform_;
+      using SupervoxelClustering<PointT>::seed_prune_radius_;
+      
+      using SupervoxelClustering<PointT>::transformFunction;
+      using SupervoxelClustering<PointT>::transformFunctionVoxel;
       using SupervoxelClustering<PointT>::prepareForSegmentation;
       using SupervoxelClustering<PointT>::selectInitialSupervoxelSeeds;
       using SupervoxelClustering<PointT>::createHelpersFromSeedIndices;
       using SupervoxelClustering<PointT>::expandSupervoxels;
       using SupervoxelClustering<PointT>::initializeLabelColors;
-
+      using SupervoxelClustering<PointT>::findNeighborMinCurvature;
     public:
+      using SupervoxelClustering<PointT>::setSeedPruneRadius;
       using SupervoxelClustering<PointT>::setVoxelResolution;
       using SupervoxelClustering<PointT>::getVoxelResolution;
       using SupervoxelClustering<PointT>::setSeedResolution;
@@ -147,20 +155,49 @@
       extract (std::map<uint32_t,typename SequentialSV::Ptr > &supervoxel_clusters);
       
       void
+      setMinWeight (float min_weight)
+      {
+        min_weight_ = min_weight;
+      }
+      
+      void 
+      setFullExpandLeaves (bool do_full_expansion)
+      {
+        do_full_expansion_ = do_full_expansion;
+      }
+      void
       buildVoxelCloud ();
       
       /** \brief This function builds new supervoxels which are conditioned on the voxel_weight_maps contained in supervoxel_clusters 
         */
       void
-      extractNewConditionedSupervoxels (SequentialSVMapT &supervoxel_clusters);
+      extractNewConditionedSupervoxels (SequentialSVMapT &supervoxel_clusters, bool add_new_seeds);
     protected:
       void
-      createHelpersFromWeightMaps (SequentialSVMapT &supervoxel_clusters, std::vector<size_t> &updated_seed_indices);
-
+      createHelpersFromWeightMaps (SequentialSVMapT &supervoxel_clusters, std::vector<size_t> &existing_seed_indices);
+      
+      void
+      clearOwnersSetCentroids ();
+      
+      void
+      expandSupervoxelsFast ( int depth );
+      
+      /** \brief This method appends internal supervoxel helpers to the list based on the provided seed points
+       *  \param[in] seed_indices Indices of the leaves to use as seeds
+       */
+      void
+      appendHelpersFromSeedIndices (std::vector<size_t> &seed_indices);
+      
       /** \brief Constructs the map of supervoxel clusters from the internal supervoxel helpers */
       void
       makeSupervoxels (std::map<uint32_t,typename SequentialSV::Ptr > &supervoxel_clusters);
 
+      /** \brief This selects new leaves to use as supervoxel seeds
+       *  \param[out] seed_indices The selected leaf indices
+       */
+      void
+      selectNewSupervoxelSeeds (std::vector<size_t> &existing_seed_indices, std::vector<size_t> &seed_indices);
+      
       /** \brief Stores the resolution used in the octree */
       using SupervoxelClustering<PointT>::resolution_;
 
@@ -191,6 +228,9 @@
       using SupervoxelClustering<PointT>::supervoxel_helpers_;
 
       using SupervoxelClustering<PointT>::timer_;
+      
+      float min_weight_;
+      bool do_full_expansion_;
     public:
       EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   };

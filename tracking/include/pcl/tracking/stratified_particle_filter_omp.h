@@ -113,6 +113,8 @@ namespace pcl
         coherences_.swap (coherence_vec);
       }
 
+      void 
+      updateStrata (std::map<uint32_t,typename SequentialSV::Ptr> &supervoxel_clusters);
       
     protected:
       void

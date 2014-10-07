@@ -7,7 +7,7 @@
 
 template <typename PointInT> double 
 pcl::tracking::NormalCoherence<PointInT>::computeCoherence (const PointInT &source,const PointInT &target)
-{
+{/*
     Eigen::Vector4f n = source.getNormalVector4fMap ();
     Eigen::Vector4f n_dash = target.getNormalVector4fMap ();
     if ( n.norm () <= 1e-5 || n_dash.norm () <= 1e-5 )
@@ -28,6 +28,14 @@ pcl::tracking::NormalCoherence<PointInT>::computeCoherence (const PointInT &sour
         else
             return 0.0;
     }
+  */
+  //The above is way too slow.
+  double dotprod = 1.0f - (source.getNormalVector4fMap ().dot (target.getNormalVector4fMap ()));
+  if (!pcl_isnan (dotprod))
+    return 1.0 / (1.0 + weight_ * dotprod);
+  else
+    return 0.0;
+  
 }
 
 

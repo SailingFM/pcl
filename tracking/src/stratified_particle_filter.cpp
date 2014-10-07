@@ -39,5 +39,5 @@
 #include <pcl/impl/instantiate.hpp>
 #include <pcl/point_types.h>
 
-PCL_INSTANTIATE_PRODUCT(StratifiedParticleFilterOMPTracker, ((pcl::PointXYZ) (pcl::PointXYZI) (pcl::PointXYZRGBA) (pcl::PointXYZRGB) (pcl::PointXYZRGBNormal))(PCL_STATE_POINT_TYPES))
+PCL_INSTANTIATE_PRODUCT(StratifiedParticleFilterOMPTracker, ((pcl::PointXYZRGBNormal))(PCL_STATE_POINT_TYPES))
 

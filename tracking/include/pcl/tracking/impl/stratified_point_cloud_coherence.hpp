@@ -16,7 +16,6 @@ namespace pcl
     {
       size_t idx_start = 0, idx_end;
       //Create the strata helpers
-      strata_indices_.reserve (supervoxels.size ());
       for (int i = 0; i < supervoxels.size (); ++i)
       {
         idx_end = idx_start + supervoxels[i]->voxels_->size () - 1;
@@ -32,17 +31,63 @@ namespace pcl
     }
     
     template <typename PointInT> void
+    StratifiedPointCloudCoherence<PointInT>::updateStrata (std::map<uint32_t,typename SequentialSV::Ptr> &supervoxel_clusters)
+    {
+      size_t idx_start = 0, idx_end;
+      StrataItr strata_itr = strata_indices_.begin ();
+      for (; strata_itr != strata_indices_.end (); )
+      {
+        uint32_t sv_label_ = strata_itr->stratum_label_;
+        std::map<uint32_t,typename SequentialSV::Ptr>::iterator sv_itr = supervoxel_clusters.find (sv_label_);
+        if (sv_itr != supervoxel_clusters.end ())
+        {
+          strata_itr->supervoxel_ = sv_itr->second;
+          idx_end = idx_start + sv_itr->second->voxels_->size () - 1;
+          strata_itr->index_range_ =std::make_pair<size_t,size_t> (idx_start,idx_end);
+          idx_start = idx_end + 1;
+          ++strata_itr;
+        }
+        else //SV no longer exists - delete it.
+        {
+          strata_itr = strata_indices_.erase (strata_itr);
+        }
+      }
+      
+    }
+    
+    template <typename PointInT> void
+    StratifiedPointCloudCoherence<PointInT>::getSVLabels (std::vector<uint32_t> &sv_labels)
+    {
+      sv_labels.clear ();
+      sv_labels.reserve (strata_indices_.size ());
+      StrataItr strata_itr = strata_indices_.begin ();
+      for (; strata_itr != strata_indices_.end (); )
+      {
+        sv_labels.push_back (strata_itr->stratum_label_);
+      }
+    }
+    
+    
+    template <typename PointInT> void
     StratifiedPointCloudCoherence<PointInT>::applyWeightToStrata (float weight)
     {
       //#ifdef _OPENMP
       //#pragma omp parallel for num_threads(threads_) schedule(static, 10)
       //#endif
-      for (int strata_idx = 0; strata_idx < strata_indices_.size (); ++strata_idx)
+      StrataItr strata_itr = strata_indices_.begin ();
+      for (; strata_itr != strata_indices_.end (); ++strata_itr)
       {
         for (int i = 0; i < num_samples_; ++i)
         {
+          std::map <size_t, float>::iterator itr = strata_itr->supervoxel_->voxel_weight_map_.find (strata_itr->sampled_[i]);
+          if (itr ==  strata_itr->supervoxel_->voxel_weight_map_.end ())
+          {
+            strata_itr->supervoxel_->voxel_weight_map_[strata_itr->sampled_[i]] = weight;
+          }
+          else
+            itr->second += weight;
           // Add the voxel index and weight to this supervoxel
-          strata_indices_[strata_idx].supervoxel_->voxel_weight_map_[strata_indices_[strata_idx].sampled_[i]] += weight;
+          //strata_indices_[strata_idx].supervoxel_->voxel_weight_map_[strata_indices_[strata_idx].sampled_[i]] += weight;
         }
       }
     }
@@ -112,6 +157,8 @@ namespace pcl
           int rnd_idx = index_dist (rng_);
           PointInT test_pt = cloud->points[rnd_idx];
           test_pt.getVector3fMap () = trans * test_pt.getVector3fMap ();
+          test_pt.getNormalVector3fMap () = trans * test_pt.getNormalVector3fMap ();
+          test_pt.getNormalVector3fMap ().normalize ();
           search_->nearestKSearch (test_pt, 1, k_indices, k_distances);
           if (k_distances[0] < max_dist_squared)
           {
@@ -119,7 +166,6 @@ namespace pcl
             for (size_t k = 0; k < point_coherences_.size (); k++)
             {
               PointCoherencePtr coherence = point_coherences_[k];
-             // double w = coherence->compute (test_pt, target_input_->points[k_indices[0]]);
               double w = coherence->compute (test_pt, target_input_->points[k_indices[0]]);
               strata_itr->sampled_[i] = k_indices[0];
               coherence_val *= w;

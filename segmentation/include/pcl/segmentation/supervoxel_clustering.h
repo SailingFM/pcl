@@ -229,6 +229,11 @@ namespace pcl
       void
       setNormalImportance (float val);
       
+      void
+      setSeedPruneRadius (float radius)
+      {
+        seed_prune_radius_ = radius;
+      }
       /** \brief Set to ignore input normals and calculate normals internally 
           \note Default is False - ie, SupervoxelClustering will use normals provided in PointT if there are any
           \note You should only need to set this if eg PointT=PointXYZRGBNormal but you don't want to use the normals it contains
@@ -350,7 +355,7 @@ namespace pcl
        *  \param[out] seed_indices The selected leaf indices
        */
       void
-      selectInitialSupervoxelSeeds (std::vector<int> &seed_indices);
+      selectInitialSupervoxelSeeds (std::vector<size_t> &seed_indices);
 
       int 
       findNeighborMinCurvature (int idx);
@@ -359,7 +364,7 @@ namespace pcl
        *  \param[in] seed_indices Indices of the leaves to use as seeds
        */
       void
-      createHelpersFromSeedIndices (std::vector<int> &seed_indices);
+      createHelpersFromSeedIndices (std::vector<size_t> &seed_indices);
 
       /** \brief This performs the superpixel evolution */
       void
@@ -391,6 +396,10 @@ namespace pcl
       void
       transformFunction (PointT &p);
       
+      /** \brief Transform function used to normalize voxel density versus distance from camera */
+      void
+      transformFunctionVoxel (VoxelT &p);
+      
       /** \brief Contains a KDtree for the voxelized cloud */
       typename pcl::search::KdTree<VoxelT>::Ptr voxel_kdtree_;
       
@@ -406,12 +415,18 @@ namespace pcl
       float spatial_importance_;
       /** \brief Importance of similarity in normals for clustering */
       float normal_importance_;
+      
+      float seed_prune_radius_;
+      
       /** \brief Option to ignore normals in input Pointcloud. Defaults to false */
       bool ignore_input_normals_; 
       
       bool prune_close_seeds_;
       /** \brief Stores the colors used for the superpixel labels*/
       std::vector<uint32_t> label_colors_;
+      
+      /** \brief Stores whether to transform points into a depth dependent space*/
+      bool use_single_camera_transform_;
       
       /** \brief Internal storage class for supervoxels 
        * \note Stores pointers to leaves of clustering internal octree, 

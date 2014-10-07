@@ -48,7 +48,9 @@ PCL_INSTANTIATE(ApproxNearestPairPointCloudCoherence, PCL_XYZ_POINT_TYPES)
 PCL_INSTANTIATE(DistanceCoherence, PCL_XYZ_POINT_TYPES)
 PCL_INSTANTIATE(HSVColorCoherence, (pcl::PointXYZRGB)(pcl::PointXYZRGBNormal)(pcl::PointXYZRGBA))
 PCL_INSTANTIATE(NearestPairPointCloudCoherence, PCL_XYZ_POINT_TYPES)
-PCL_INSTANTIATE(StratifiedPointCloudCoherence, PCL_XYZ_POINT_TYPES)
 PCL_INSTANTIATE(NormalCoherence, PCL_NORMAL_POINT_TYPES)
+
+PCL_INSTANTIATE(StratifiedPointCloudCoherence, (pcl::PointXYZRGBNormal))
+
 #endif    // PCL_NO_PRECOMPILE
 

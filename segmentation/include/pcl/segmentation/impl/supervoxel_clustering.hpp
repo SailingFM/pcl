@@ -52,12 +52,14 @@ pcl::SupervoxelClustering<PointT>::SupervoxelClustering (float voxel_resolution,
   color_importance_ (0.1f),
   spatial_importance_ (0.4f),
   normal_importance_ (1.0f),
+  seed_prune_radius_ (seed_resolution/2.0),
   ignore_input_normals_ (false),
   prune_close_seeds_ (prune_close_seeds),
-  label_colors_ (0)
+  label_colors_ (0),
+  use_single_camera_transform_ (use_single_camera_transform)
 {
   adjacency_octree_.reset (new OctreeAdjacencyT (resolution_));
-  if (use_single_camera_transform)
+  if (use_single_camera_transform_)
     adjacency_octree_->setTransformFunction (boost::bind (&SupervoxelClustering::transformFunction, this, _1));  
 }
 
@@ -79,6 +81,11 @@ pcl::SupervoxelClustering<PointT>::setInputCloud (const typename pcl::PointCloud
   }
   
   input_ = cloud;
+  adjacency_octree_.reset (new OctreeAdjacencyT (resolution_));
+  if (use_single_camera_transform_)
+  {
+    adjacency_octree_->setTransformFunction (boost::bind (&SupervoxelClustering::transformFunction, this, _1));
+  }
   adjacency_octree_->setInputCloud (cloud);
 }
 
@@ -106,14 +113,14 @@ pcl::SupervoxelClustering<PointT>::extract (std::map<uint32_t,typename Supervoxe
   
   double t_prep = timer_.getTime ();
   //std::cout << "Placing Seeds" << std::endl;
-  std::vector<int> seed_indices;
+  std::vector<size_t> seed_indices;
   selectInitialSupervoxelSeeds (seed_indices);
   //std::cout << "Creating helpers "<<std::endl;
   createHelpersFromSeedIndices (seed_indices);
   double t_seeds = timer_.getTime ();
   
   //std::cout << "Expanding the supervoxels" << std::endl;
-  int max_depth = static_cast<int> (sqrt(3)*seed_resolution_/resolution_);
+  int max_depth = static_cast<int> (sqrt(2)*seed_resolution_/resolution_);
   expandSupervoxels (max_depth);
 
   double t_iterate = timer_.getTime ();
@@ -318,7 +325,7 @@ pcl::SupervoxelClustering<PointT>::makeSupervoxels (std::map<uint32_t,typename S
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT> void
-pcl::SupervoxelClustering<PointT>::createHelpersFromSeedIndices (std::vector<int> &seed_indices)
+pcl::SupervoxelClustering<PointT>::createHelpersFromSeedIndices (std::vector<size_t> &seed_indices)
 {
   supervoxel_helpers_.clear ();
   
@@ -340,10 +347,12 @@ pcl::SupervoxelClustering<PointT>::createHelpersFromSeedIndices (std::vector<int
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT> void
-pcl::SupervoxelClustering<PointT>::selectInitialSupervoxelSeeds (std::vector<int> &seed_indices)
+pcl::SupervoxelClustering<PointT>::selectInitialSupervoxelSeeds (std::vector<size_t> &seed_indices)
 {
   //Initialize octree with voxel centroids - overseed, then prune later
-  pcl::octree::OctreePointCloudSearch <VoxelT> seed_octree (seed_resolution_/2);
+  pcl::octree::OctreePointCloudAdjacency<VoxelT> seed_octree (seed_resolution_/sqrt(2));
+  if (use_single_camera_transform_)
+    seed_octree.setTransformFunction (boost::bind (&SupervoxelClustering::transformFunctionVoxel, this, _1));    
   seed_octree.setInputCloud (voxel_centroid_cloud_);
   seed_octree.addPointsFromInputCloud ();
   //std::cout << "Size of octree ="<<seed_octree.getLeafCount ()<<"\n";
@@ -351,30 +360,33 @@ pcl::SupervoxelClustering<PointT>::selectInitialSupervoxelSeeds (std::vector<int
   int num_seeds = seed_octree.getOccupiedVoxelCenters(voxel_centers); 
   std::cout << "Number of seed points before filtering="<<voxel_centers.size ()<<std::endl;
 
-  std::vector<int> seed_indices_orig;
-  seed_indices_orig.resize (num_seeds, 0);
-  seed_indices.clear ();
-  std::vector<int> closest_index;
-  std::vector<float> distance;
-  closest_index.resize(1,0);
-  distance.resize(1,0);
+  std::vector<size_t> new_seed_indices;
+  new_seed_indices.resize (num_seeds, 0);
+  std::vector<int> closest_index (1,0);
+  std::vector<float> distance (1,0);
 
   //Find closest point to seed_resolution octree centroids in voxel_centroid_cloud
   for (int i = 0; i < num_seeds; ++i)  
   {
+    if (use_single_camera_transform_)
+    {
+      //Inverse transform the point.
+      voxel_centers[i].z = std::exp (voxel_centers[i].z);
+      voxel_centers[i].x *= voxel_centers[i].z;
+      voxel_centers[i].y *= voxel_centers[i].z;
+    }
     voxel_kdtree_->nearestKSearch (voxel_centers[i], 1, closest_index, distance);
-    seed_indices_orig[i] = closest_index[0];
+    new_seed_indices[i] = closest_index[0];
   }
 
   //Shift seeds to voxels within set of neighbors with min curvature (iteratively)
-  std::vector<int> voxel_cloud_indices (num_seeds);
-  typename VoxelCloudT::Ptr seed_cloud_ (new VoxelCloudT);
-  seed_cloud_->reserve (num_seeds);
+  typename VoxelCloudT::Ptr seed_cloud (new VoxelCloudT);
+  seed_cloud->reserve (num_seeds);
   // This is an important parameter - determines maximum shift - here, it is number of voxels per seed
   int search_depth = (seed_resolution_/resolution_) / sqrt (3);
-  for (size_t i = 0; i < seed_indices_orig.size (); ++i)
+  for (size_t i = 0; i < new_seed_indices.size (); ++i)
   {
-    int idx = seed_indices_orig[i];
+    int idx = new_seed_indices[i];
     //Shift based on curvature, number of times based on voxel to seed size ratio
     int new_idx;
     for (int k = 0; k < search_depth; ++k)
@@ -385,32 +397,38 @@ pcl::SupervoxelClustering<PointT>::selectInitialSupervoxelSeeds (std::vector<int
       else
         idx = new_idx;
     }
-    voxel_cloud_indices [i] = idx;
-    seed_cloud_->push_back (voxel_centroid_cloud_->points[idx]);
+    new_seed_indices [i] = idx;
+    seed_cloud->push_back (voxel_centroid_cloud_->points[idx]);
   }
   
   //If we're not pruning, we're done.
   if (!prune_close_seeds_)
   {
-    seed_indices = voxel_cloud_indices;
+    seed_indices.swap (new_seed_indices);
     return;
   }
   
   typename pcl::search::KdTree<VoxelT> seed_kdtree;
-  seed_kdtree.setInputCloud (seed_cloud_);
+  seed_kdtree.setInputCloud (seed_cloud);
   std::vector<int> neighbors;
   std::vector<float> sqr_distances;
   //This stores seed_cloud index to SeedNHood pointers
-  std::vector<typename SeedNHood::Ptr> seed_lookup (seed_cloud_->size ());
+  std::vector<typename SeedNHood::Ptr> seed_lookup (seed_cloud->size ());
   //Now we will check if seeds are near to other seeds, and prune those that are
   
   typename SeedNHood::SeedPriorityQueue seed_heap;
   std::vector<typename SeedNHood::Ptr> seed_nhoods;
-  float search_radius = seed_resolution_ / 2;
   float angle_thresh_rad = (0.785398163); // PI/4
-  for (int i = 0; i < voxel_cloud_indices.size (); ++i)  
+  for (int i = 0; i < new_seed_indices.size (); ++i)  
   {
-    int voxel_idx = voxel_cloud_indices[i];
+    int voxel_idx = new_seed_indices[i];
+    //Search radius needs to be adjusted depending on transform and voxel coordinates.
+    float search_radius = seed_prune_radius_;
+    if ( use_single_camera_transform_ )
+    {
+      float dist_from_origin = voxel_centroid_cloud_->at(voxel_idx).getVector3fMap ().squaredNorm ();
+      search_radius *= std::log (dist_from_origin + 2.71828); //0 dist has radius*=1
+    }
     seed_kdtree.radiusSearch (voxel_centroid_cloud_->at(voxel_idx), search_radius , neighbors, sqr_distances);
     typename SeedNHood::Ptr new_nhood (new SeedNHood);
     seed_lookup[i] = new_nhood;
@@ -418,7 +436,7 @@ pcl::SupervoxelClustering<PointT>::selectInitialSupervoxelSeeds (std::vector<int
     //check each neighbor for normal difference - if > angle_thresh, don't count it as an edge
     for (int k = 0; k < neighbors.size (); ++k)
     {
-      float angle_diff_rad = std::acos(seed_cloud_->at(i).getNormalVector3fMap ().dot (seed_cloud_->at(neighbors[k]).getNormalVector3fMap ()));
+      float angle_diff_rad = std::acos(seed_cloud->at(i).getNormalVector3fMap ().dot (seed_cloud->at(neighbors[k]).getNormalVector3fMap ()));
       if (std::isnan(angle_diff_rad) || angle_diff_rad < angle_thresh_rad)
       {
         new_nhood->neighbor_indices_.push_back (neighbors[k]);
@@ -529,6 +547,7 @@ pcl::SupervoxelClustering<PointT>::reseedSupervoxels ()
   
 }
 
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT> void
 pcl::SupervoxelClustering<PointT>::transformFunction (PointT &p)
@@ -537,6 +556,16 @@ pcl::SupervoxelClustering<PointT>::transformFunction (PointT &p)
   p.y /= p.z;
   p.z = std::log (p.z);
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template <typename PointT> void
+pcl::SupervoxelClustering<PointT>::transformFunctionVoxel (VoxelT &p)
+{
+  p.x /= p.z;
+  p.y /= p.z;
+  p.z = std::log (p.z);
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT> float
@@ -809,7 +838,7 @@ pcl::SupervoxelClustering<PointT>::initializeLabelColors ()
 {
   uint32_t max_label = static_cast<uint32_t> (10000); //TODO Should be getMaxLabel
   //If we already have enough colors, return
-  if (label_colors_.size () > max_label)
+  if (label_colors_.size () >= max_label)
     return;
   
   //Otherwise, generate new colors until we have enough
