@@ -84,17 +84,20 @@ pcl::octree::OctreePointCloudAdjacency<PointT, LeafContainerT, BranchContainerT>
   LeafContainerT *leaf_container;
   typename OctreeAdjacencyT::LeafNodeIterator leaf_itr;
   leaf_vector_.reserve (this->getLeafCount ());
+  key_vector_.reserve (this->getLeafCount ());
   for ( leaf_itr = this->leaf_begin () ; leaf_itr != this->leaf_end (); ++leaf_itr)
   {
-    OctreeKey leaf_key = leaf_itr.getCurrentOctreeKey ();
+    boost::shared_ptr<OctreeKey> leaf_key (new OctreeKey (leaf_itr.getCurrentOctreeKey ()));
+    //OctreeKey leaf_key = leaf_itr.getCurrentOctreeKey ();
     leaf_container = &(leaf_itr.getLeafContainer ());
     
     //Run the leaf's compute function
     leaf_container->computeData ();
 
-    computeNeighbors (leaf_key, leaf_container);
+    computeNeighbors (*leaf_key, leaf_container);
     
     leaf_vector_.push_back (leaf_container);
+    key_vector_.push_back (leaf_key);
   }
   //Make sure our leaf vector is correctly sized
   assert (leaf_vector_.size () == this->getLeafCount ());

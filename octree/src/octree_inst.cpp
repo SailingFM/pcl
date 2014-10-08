@@ -80,5 +80,21 @@ PCL_INSTANTIATE(OctreePointCloudSingleBufferWithEmptyLeaf, PCL_XYZ_POINT_TYPES)
 // PCL_INSTANTIATE(OctreePointCloudChangeDetector, PCL_XYZ_POINT_TYPES)
 // PCL_INSTANTIATE(OctreePointCloudVoxelCentroid, PCL_XYZ_POINT_TYPES)
 
+#include <boost/thread/mutex.hpp>
+#include <pcl/octree/impl/octree_pointcloud_sequential.hpp>
+typedef pcl::octree::SequentialVoxelData<pcl::PointXYZRGBA> SeqVoxelData;
+typedef pcl::octree::OctreePointCloudSequentialContainer<pcl::PointXYZRGBA, SeqVoxelData> AdjacencyContainerRGBASequential;
+
+template class pcl::octree::OctreePointCloudSequentialContainer<pcl::PointXYZRGBA, SeqVoxelData>;
+template class pcl::octree::OctreePointCloudSequential<pcl::PointXYZRGBA, AdjacencyContainerRGBASequential>;
+
+typedef pcl::octree::SequentialVoxelData<pcl::PointXYZRGBNormal> SeqVoxelDataNormal;
+typedef pcl::octree::OctreePointCloudSequentialContainer<pcl::PointXYZRGBNormal, SeqVoxelDataNormal> AdjacencyContainerRGBNSequential;
+
+template class pcl::octree::OctreePointCloudSequentialContainer<pcl::PointXYZRGBNormal, SeqVoxelDataNormal>;
+template class pcl::octree::OctreePointCloudSequential<pcl::PointXYZRGBNormal, AdjacencyContainerRGBNSequential>;
+
+
+
 #endif    // PCL_NO_PRECOMPILE
 

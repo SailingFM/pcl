@@ -278,7 +278,7 @@ namespace pcl
         * \note This will expand the label_colors_ vector so that it can accomodate all labels
         */
       typename pcl::PointCloud<PointXYZRGBA>::Ptr
-      getColoredCloud () const;
+      getColoredCloud (typename pcl::PointCloud<PointT>::ConstPtr input_cloud) const;
 
       /** \brief Returns a deep copy of the voxel centroid cloud */
       template<typename PointOutT>

@@ -654,13 +654,13 @@ pcl::SupervoxelClustering<PointT>::getSupervoxelAdjacency (std::multimap<uint32_
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <typename PointT> pcl::PointCloud<pcl::PointXYZRGBA>::Ptr
-pcl::SupervoxelClustering<PointT>::getColoredCloud () const
+pcl::SupervoxelClustering<PointT>::getColoredCloud (typename pcl::PointCloud<PointT>::ConstPtr input_cloud) const
 {
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr colored_cloud (new pcl::PointCloud<pcl::PointXYZRGBA>);
-  pcl::copyPointCloud (*input_,*colored_cloud);
+  pcl::copyPointCloud (*input_cloud,*colored_cloud);
   
   pcl::PointCloud <pcl::PointXYZRGBA>::iterator i_colored;
-  typename pcl::PointCloud <PointT>::const_iterator i_input = input_->begin ();
+  typename pcl::PointCloud <PointT>::const_iterator i_input = input_cloud->begin ();
   std::vector <int> indices;
   std::vector <float> sqr_distances;
   for (i_colored = colored_cloud->begin (); i_colored != colored_cloud->end (); ++i_colored,++i_input)
@@ -671,9 +671,12 @@ pcl::SupervoxelClustering<PointT>::getColoredCloud () const
     {     
       i_colored->rgb = 0;
       LeafContainerT *leaf = adjacency_octree_->getLeafContainerAtPoint (*i_input);
-      VoxelData& voxel_data = leaf->getData ();
-      if (voxel_data.owner_)
+      if (leaf != 0)
+      {
+        VoxelData& voxel_data = leaf->getData ();
+        if (voxel_data.owner_)
         i_colored->rgba = label_colors_[voxel_data.owner_->getLabel ()];
+      }
       
     }
     

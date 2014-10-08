@@ -124,6 +124,7 @@ namespace pcl
 
         // Leaf vector - pointers to all leaves
         typedef std::vector<LeafContainerT*> LeafVectorT;
+        typedef std::vector<boost::shared_ptr<OctreeKey> >  KeyVectorT;
 
         // Fast leaf iterators that don't require traversing tree
         typedef typename LeafVectorT::iterator iterator;
@@ -215,7 +216,7 @@ namespace pcl
         void
         genOctreeKeyforPoint (const PointT& point_arg, OctreeKey& key_arg) const;
 
-      private:
+      protected:
 
         /** \brief Add point at given index from input point cloud to octree.
           *
@@ -238,7 +239,7 @@ namespace pcl
 
         /// Local leaf pointer vector used to make iterating through leaves fast.
         LeafVectorT leaf_vector_;
-
+        KeyVectorT key_vector_;
         boost::function<void (PointT &p)> transform_func_;
 
     };

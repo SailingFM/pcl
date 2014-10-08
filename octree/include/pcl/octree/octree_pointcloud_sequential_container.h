@@ -37,8 +37,8 @@
  *  Email  : jpapon@gmail.com
  */
 
-#ifndef PCL_OCTREE_POINTCLOUD_ADJACENCY_CONTAINER_H_
-#define PCL_OCTREE_POINTCLOUD_ADJACENCY_CONTAINER_H_
+#ifndef PCL_OCTREE_POINTCLOUD_SEQUENTIAL_CONTAINER_H_
+#define PCL_OCTREE_POINTCLOUD_SEQUENTIAL_CONTAINER_H_
 
 namespace pcl
 { 
@@ -51,31 +51,41 @@ namespace pcl
     *   \note You should make explicit instantiations of it for your pointtype/datatype combo (if needed) see supervoxel_clustering.hpp for an example of this
     */
     template<typename PointInT, typename DataT = PointInT>
-    class OctreePointCloudAdjacencyContainer : public OctreeContainerBase
+    class OctreePointCloudSequentialContainer : public OctreeContainerBase
     {
       template<typename T, typename U, typename V>
-      friend class OctreePointCloudAdjacency;
+      friend class OctreePointCloudSequential;
     public:
-      typedef std::list<OctreePointCloudAdjacencyContainer*> NeighborListT;
+      typedef std::set<OctreePointCloudSequentialContainer*> NeighborListT;
       typedef typename NeighborListT::const_iterator const_iterator;
       //const iterators to neighbors
       inline const_iterator cbegin () const { return (neighbors_.begin ()); }
       inline const_iterator cend () const  { return (neighbors_.end ()); }
       //size of neighbors
       inline size_t size () const { return neighbors_.size (); }
-
+      
       /** \brief Class initialization. */
-      OctreePointCloudAdjacencyContainer () :
+      OctreePointCloudSequentialContainer () :
       OctreeContainerBase ()
       {
         this->reset();       
       }
-
+      
       /** \brief Empty class deconstructor. */
-      virtual ~OctreePointCloudAdjacencyContainer ()
+      virtual ~OctreePointCloudSequentialContainer ()
       {
       }
-
+      
+      /** \brief deep copy function */
+      virtual OctreePointCloudSequentialContainer *
+      deepCopy () const
+      {
+        OctreePointCloudSequentialContainer *new_container = new OctreePointCloudSequentialContainer;
+        new_container->setNeighbors (this->neighbors_);
+        new_container->setPointCounter (this->num_points_);
+        return new_container;
+      }
+      
       /** \brief Returns the number of neighbors this leaf has
        *  \returns number of neighbors
        */
@@ -89,9 +99,21 @@ namespace pcl
       int
       getPointCounter () const { return num_points_; }
 
+      /** \brief Resets the number of points contributing to this leaf to 0*/
+      void
+      resetPointCount () 
+      { 
+        num_prev_= num_points_; 
+        num_points_ = 0; 
+      }
+      
       /** \brief Returns a reference to the data member to access it without copying */
       DataT&
       getData () { return data_; }
+      
+      /** \brief Returns a const reference to the data member to access it without copying */
+      const DataT&
+      getData () const { return data_; }
 
       /** \brief Sets the data member
        *  \param[in] data_arg New value for data
@@ -107,27 +129,16 @@ namespace pcl
       {
         return num_points_;
       }
-    protected:
       //iterators to neighbors
       typedef typename NeighborListT::iterator iterator;
       inline iterator begin () { return (neighbors_.begin ()); }
       inline iterator end ()   { return (neighbors_.end ()); }
 
-      /** \brief deep copy function */
-      virtual OctreePointCloudAdjacencyContainer *
-      deepCopy () const
-      {
-        OctreePointCloudAdjacencyContainer *new_container = new OctreePointCloudAdjacencyContainer;
-        new_container->setNeighbors (this->neighbors_);
-        new_container->setPointCounter (this->num_points_);
-        return new_container;
-      }
-      
       /** \brief Add new point to container- this just counts points
        * \note To actually store data in the leaves, need to specialize this
        * for your point and data type as in supervoxel_clustering.hpp
        */
-       // param[in] new_point the new point to add
+       // param[in] new_point the new point to add  
       void 
       addPoint (const PointInT& /*new_point*/)
       {
@@ -151,7 +162,7 @@ namespace pcl
       reset ()
       {
         neighbors_.clear ();
-        num_points_ = 0;
+        num_points_ = num_prev_ = 0;
         data_ = DataT ();
       }
       
@@ -159,25 +170,18 @@ namespace pcl
        * \param[in] neighbor the new neighbor to add  
        */
       void 
-      addNeighbor (OctreePointCloudAdjacencyContainer *neighbor)
+      addNeighbor (OctreePointCloudSequentialContainer *neighbor)
       {
-        neighbors_.push_back (neighbor);
+        neighbors_.insert (neighbor);
       }
       
       /** \brief Remove neighbor from neighbor set.
        * \param[in] neighbor the neighbor to remove
        */
       void 
-      removeNeighbor (OctreePointCloudAdjacencyContainer *neighbor)
+      removeNeighbor (OctreePointCloudSequentialContainer *neighbor)
       {
-        for (iterator neighb_it = neighbors_.begin(); neighb_it != neighbors_.end(); ++neighb_it)
-        {
-          if ( *neighb_it == neighbor)
-          {
-            neighbors_.erase (neighb_it);
-            return;
-          }
-        }
+          neighbors_.erase (neighbor);
       }
       
       /** \brief Sets the whole neighbor set
@@ -190,7 +194,7 @@ namespace pcl
       }
       
     private:
-      int num_points_;
+      int num_points_,num_prev_;
       NeighborListT neighbors_;
       DataT data_;
     };

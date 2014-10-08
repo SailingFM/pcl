@@ -576,7 +576,7 @@ pcl::SequentialSVClustering<PointT>::appendHelpersFromSeedIndices (std::vector<s
   std::cout <<"Num SV Before ="<<num_helpers_before<<"  maxlabel="<<max_label_before<<"     Num SV After ="<<num_helpers_after<<"  maxlabel="<<max_label_after<<"   num new seeds="<<seed_indices.size ()<<"\n";
   int empty_slots = max_label_before - num_helpers_before;
   //Either the max label hasn't changed (we only filled in holes), or the max label has increased and there are no holes
-  assert ( (max_label_before == max_label_after) || (max_label_after  == (max_label_before + seed_indices.size () - empty_slots)));
+  assert ( (max_label_before == max_label_after) || (max_label_after  == (max_label_before + seed_indices.size () - empty_slots - num_not_added)));
 }
 
 #define PCL_INSTANTIATE_SequentialSVClustering(T) template class PCL_EXPORTS pcl::SequentialSVClustering<T>;
