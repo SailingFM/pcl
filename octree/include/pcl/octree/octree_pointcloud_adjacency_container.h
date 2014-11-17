@@ -92,7 +92,15 @@ namespace pcl
       /** \brief Returns a reference to the data member to access it without copying */
       DataT&
       getData () { return data_; }
+      
+      /** \brief Returns a const reference to the data member to access it without copying */
+      const DataT&
+      getData () const { return data_; }
 
+      /** \brief Returns a Pointer to the data member */
+      DataT*
+      getDataPtr () { return &data_; }
+      
       /** \brief Sets the data member
        *  \param[in] data_arg New value for data
        */
@@ -189,7 +197,6 @@ namespace pcl
         neighbors_ = neighbor_arg;
       }
       
-    private:
       int num_points_;
       NeighborListT neighbors_;
       DataT data_;

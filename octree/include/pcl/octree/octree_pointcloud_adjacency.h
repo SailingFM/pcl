@@ -153,6 +153,9 @@ namespace pcl
         void
         addPointsFromInputCloud ();
 
+        void
+        defineBoundingBoxOnInputCloud ();
+        
         /** \brief Gets the leaf container for a given point.
           *
           * \param[in] point_arg Point to search for

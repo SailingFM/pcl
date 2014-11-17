@@ -46,93 +46,17 @@ namespace pcl
 { 
   namespace octree
   {
-    
-    template <typename PointT>
-    class SequentialVoxelData
-    {
-      public:
-        SequentialVoxelData ():
-        xyz_ (0.0f, 0.0f, 0.0f),
-        xyz_old_ (0.0f, 0.0f, 0.0f),
-        rgb_ (0.0f, 0.0f, 0.0f),
-        rgb_old_ (0.0f, 0.0f, 0.0f),
-        new_leaf_ (true),
-        has_changed_ (false),
-        idx_ (0)
-        {}
-        
-        /** \brief Gets the data of in the form of a point
-        *  \param[out] point_arg Will contain the point value of the voxeldata
-        */  
-        void
-        getPoint (PointT &point_arg) const;
-        
-        /** \brief Gets the data of in the form of a point
-        *  \return Returns the point value of the voxeldata
-        */  
-        PointT
-        getPoint () const {PointT temp; this->getPoint (temp); return temp; }
-        
-        bool 
-        isNew () const { return new_leaf_; }
-        
-        void
-        setNew (bool new_arg) { new_leaf_ = new_arg; }
-        
-        bool 
-        isChanged () const { return has_changed_; }
-        
-        void 
-        setChanged (bool new_val) { has_changed_ = new_val; }
-        
-        void
-        prepareForNewFrame (const int &points_last_frame)
-        {
-          new_leaf_ = false;
-          has_changed_ = false;
-          xyz_.swap (xyz_old_);
-          rgb_.swap (rgb_old_);
-          xyz_ = xyz_old_;
-          xyz_ *= points_last_frame;
-          rgb_ = rgb_old_;
-          rgb_ *= points_last_frame;
-        }
-        
-        void
-        revertToLastPoint ()
-        {
-          xyz_ = xyz_old_;
-          rgb_ = rgb_old_;
-        }
-        
-        void initLastPoint ()
-        {
-          xyz_old_ = xyz_;
-          rgb_old_ = rgb_;
-        }
-        
-        Eigen::Vector3f xyz_,xyz_old_;
-        Eigen::Vector3f rgb_,rgb_old_;
-        float distance_;
-        int idx_;
-        bool has_changed_, new_leaf_;
-        
-        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    };
-    
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     /** \brief @b Octree 
      * 
      */
     //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     template< typename PointT, 
-    typename LeafContainerT = OctreePointCloudSequentialContainer <PointT, SequentialVoxelData<PointT> >,    
+    typename LeafContainerT = OctreePointCloudSequentialContainer <PointT>,    
     typename BranchContainerT = OctreeContainerEmpty >
     class OctreePointCloudSequential : public OctreePointCloudAdjacency< PointT, LeafContainerT, BranchContainerT>
     {
-      public:   
-        friend class SequentialVoxelData<PointT>;
-        typedef SequentialVoxelData<PointT> SeqVoxelDataT;
+      public:
         typedef OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT > OctreeSequentialT;
         typedef boost::shared_ptr<OctreeSequentialT> Ptr;
         typedef boost::shared_ptr<const OctreeSequentialT> ConstPtr;
@@ -191,6 +115,8 @@ namespace pcl
         void 
         addPointsFromInputCloud ();
         
+        using OctreeAdjacencyT::defineBoundingBoxOnInputCloud;
+        
         /** \brief Set the difference function which is used to evaluate if a leaf has changed
           * 
           *  \note Generally, this means checking if the color has changed (and possibly the neighbors)
@@ -220,6 +146,9 @@ namespace pcl
         {
           return difference_threshold_;
         }
+        
+        LeafContainerT*
+        getLeafContainerAtPoint (const PointT& point_arg) const;
         
         /** \brief Sets the precision of the occlusion testing
         *  Lower values mean more testing - the value specifies the interval (in voxels) between occlusion checks on the ray to the camera 
@@ -269,14 +198,24 @@ namespace pcl
         static float 
         SeqVoxelDataDiff (const LeafContainerT* leaf);
         
+        /** \brief Sets a point transform (and inverse) used to transform the space of the input cloud.
+         * 
+         * This is useful for changing how adjacency is calculated - such as relaxing the adjacency criterion for
+         * points further from the camera.
+         *
+         * \param[in] transform_func A boost:function pointer to the transform to be used. The transform must have one
+         * parameter (a point) which it modifies in place. */
+        using OctreeAdjacencyT::setTransformFunction;
+        
+        
       protected:
         /** \brief Tests whether input leaf-key pair is occluded from the camera view point
           *
           * \param[in] leaf_key_pair Leaf-Key pair to test for
           * \param[in] camera_key Key which specifies the camera position 
           * \returns 0 if path to camera is free, otherwise distance to occluder (in # of voxels) */
-        float
-        testForOcclusion (boost::shared_ptr<OctreeKey> &key) const;
+        std::pair<float, LeafContainerT*>
+        testForOcclusion (boost::shared_ptr<OctreeKey> &key, LeafContainerT *leaf_container ) const;
         
         /** \brief Fills in the neighbors fields for new voxels
           * \param[in] leaf_key_arg Leaf/Key pair of the voxel to compute neighbors for */
@@ -301,7 +240,6 @@ namespace pcl
         //Stores pairs of leaf pointers & octree key ptrs to leaves
         using OctreeAdjacencyT::leaf_vector_;
         using OctreeAdjacencyT::key_vector_;
-        using OctreeAdjacencyT::setTransformFunction;
         using OctreeAdjacencyT::transform_func_;
         
         LeafVectorT new_leaves_;
@@ -326,6 +264,7 @@ namespace pcl
         //Stores whether the keys stored in the key vector are currently valid
         bool stored_keys_valid_;
         
+        int frame_counter_;
         //Private members from parent OctreePointCloud class
         using OctreePointCloudT::adoptBoundingBoxToPoint;
         using OctreePointCloudT::input_;

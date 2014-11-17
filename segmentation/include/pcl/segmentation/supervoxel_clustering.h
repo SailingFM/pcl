@@ -269,17 +269,6 @@ namespace pcl
       virtual void
       refineSupervoxels (int num_itr, std::map<uint32_t,typename Supervoxel::Ptr > &supervoxel_clusters);
 
-      ////////////////////////////////////////////////////////////
-      /** \brief Returns an RGB colorized cloud showing superpixels
-        * Otherwise it returns an empty pointer.
-        * Points that belong to the same supervoxel have the same color.
-        * But this function doesn't guarantee that different segments will have different
-        * color(it's random). Points that are unlabeled will be black
-        * \note This will expand the label_colors_ vector so that it can accomodate all labels
-        */
-      typename pcl::PointCloud<PointXYZRGBA>::Ptr
-      getColoredCloud (typename pcl::PointCloud<PointT>::ConstPtr input_cloud) const;
-
       /** \brief Returns a deep copy of the voxel centroid cloud */
       template<typename PointOutT>
       typename pcl::PointCloud<PointOutT>::Ptr
@@ -307,6 +296,9 @@ namespace pcl
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr
       getColoredVoxelCloud () const;
 
+      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr
+      getColoredCloud () const;
+      
       /** \brief Returns labeled voxelized cloud
        * Points that belong to the same supervoxel have the same label.
        * Labels for segments start from 1, unlabled points have label 0
@@ -443,9 +435,7 @@ namespace pcl
           {
             bool operator() (LeafContainerT* const &left, LeafContainerT* const &right) const
             {
-              const VoxelData& leaf_data_left = left->getData ();
-              const VoxelData& leaf_data_right = right->getData ();
-              return leaf_data_left.idx_ < leaf_data_right.idx_;
+              return left->getData ().idx_ < right->getData ().idx_;
             }
           };
           typedef std::set<LeafContainerT*, typename SupervoxelHelper::compareLeaves> LeafSetT;
@@ -512,6 +502,7 @@ namespace pcl
           EIGEN_MAKE_ALIGNED_OPERATOR_NEW
       };
       
+  public:
       struct SeedNHood;
       struct SeedNHoodIncreasingOrder
       {
@@ -539,7 +530,7 @@ namespace pcl
 
         typename SeedPriorityQueue::handle_type handle_;
       };
-
+  protected:
       //Make boost::ptr_list can access the private class SupervoxelHelper
       friend void boost::checked_delete<> (const typename pcl::SupervoxelClustering<PointT>::SupervoxelHelper *);
       

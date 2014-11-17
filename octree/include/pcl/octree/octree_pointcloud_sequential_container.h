@@ -40,12 +40,14 @@
 #ifndef PCL_OCTREE_POINTCLOUD_SEQUENTIAL_CONTAINER_H_
 #define PCL_OCTREE_POINTCLOUD_SEQUENTIAL_CONTAINER_H_
 
+#include <pcl/octree/octree_pointcloud_adjacency_container.h>
+
 namespace pcl
 { 
   
   namespace octree
   {
-    /** \brief @b Octree adjacency leaf container class- stores a list of pointers to neighbors, number of points added, and a DataT value
+    /** \brief @b Octree sequential adjacency leaf container class- stores a list of pointers to neighbors, number of points added, and a DataT value
     *    \note This class implements a leaf node that stores pointers to neighboring leaves
     *   \note This class also has a virtual computeData function, which is called by octreePointCloudAdjacency::addPointsFromInputCloud.
     *   \note You should make explicit instantiations of it for your pointtype/datatype combo (if needed) see supervoxel_clustering.hpp for an example of this
@@ -57,8 +59,12 @@ namespace pcl
       friend class OctreePointCloudSequential;
     public:
       typedef std::set<OctreePointCloudSequentialContainer*> NeighborListT;
-      typedef typename NeighborListT::const_iterator const_iterator;
+            //iterators to neighbors
+      typedef typename NeighborListT::iterator iterator;
+      inline iterator begin () { return (neighbors_.begin ()); }
+      inline iterator end ()   { return (neighbors_.end ()); }
       //const iterators to neighbors
+      typedef typename NeighborListT::const_iterator const_iterator;
       inline const_iterator cbegin () const { return (neighbors_.begin ()); }
       inline const_iterator cend () const  { return (neighbors_.end ()); }
       //size of neighbors
@@ -68,7 +74,7 @@ namespace pcl
       OctreePointCloudSequentialContainer () :
       OctreeContainerBase ()
       {
-        this->reset();       
+        this->reset ();
       }
       
       /** \brief Empty class deconstructor. */
@@ -86,19 +92,6 @@ namespace pcl
         return new_container;
       }
       
-      /** \brief Returns the number of neighbors this leaf has
-       *  \returns number of neighbors
-       */
-      size_t
-      getNumNeighbors () const
-      {
-        return neighbors_.size ();
-      }
-
-      /** \brief Gets the number of points contributing to this leaf */
-      int
-      getPointCounter () const { return num_points_; }
-
       /** \brief Resets the number of points contributing to this leaf to 0*/
       void
       resetPointCount () 
@@ -106,6 +99,10 @@ namespace pcl
         num_prev_= num_points_; 
         num_points_ = 0; 
       }
+      
+      /** \brief Gets the number of points contributing to this leaf */
+      int
+      getPointCounter () const { return num_points_; }
       
       /** \brief Returns a reference to the data member to access it without copying */
       DataT&
@@ -120,7 +117,7 @@ namespace pcl
        */
       void
       setData (const DataT& data_arg) { data_ = data_arg;}
-
+      
       /** \brief  virtual method to get size of container 
        * \return number of points added to leaf node container.
        */
@@ -129,16 +126,21 @@ namespace pcl
       {
         return num_points_;
       }
-      //iterators to neighbors
-      typedef typename NeighborListT::iterator iterator;
-      inline iterator begin () { return (neighbors_.begin ()); }
-      inline iterator end ()   { return (neighbors_.end ()); }
-
+      
+      /** \brief Returns the number of neighbors this leaf has
+       *  \returns number of neighbors
+       */
+      size_t
+      getNumNeighbors () const
+      {
+        return neighbors_.size ();
+      }
+    
       /** \brief Add new point to container- this just counts points
        * \note To actually store data in the leaves, need to specialize this
        * for your point and data type as in supervoxel_clustering.hpp
        */
-       // param[in] new_point the new point to add  
+      // param[in] new_point the new point to add
       void 
       addPoint (const PointInT& /*new_point*/)
       {
@@ -194,7 +196,8 @@ namespace pcl
       }
       
     private:
-      int num_points_,num_prev_;
+      int num_points_;
+      int num_prev_;
       NeighborListT neighbors_;
       DataT data_;
     };

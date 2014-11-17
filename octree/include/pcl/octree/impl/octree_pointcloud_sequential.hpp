@@ -48,7 +48,8 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
   difference_threshold_ (0.1f),
   occlusion_test_interval_ (0.5f),
   threads_ (1),
-  stored_keys_valid_ (false)
+  stored_keys_valid_ (false),
+  frame_counter_ (0)
 {
  
 }
@@ -57,8 +58,9 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
 template<typename PointT, typename LeafContainerT, typename BranchContainerT> void
 pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT>::addPointsFromInputCloud ()
 {
+  ++frame_counter_;
   //If we're empty, just use plain version 
-  if (leaf_vector_.size () == 0)
+  if (leaf_vector_.size () == 0 )
   {
     OctreePointCloud<PointT, LeafContainerT, BranchContainerT>::addPointsFromInputCloud ();
     LeafContainerT *leaf_container;
@@ -119,7 +121,6 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
     // add the point to octree
     addPointSequential (static_cast<unsigned int> (i));
   }
-  
   //If Geometrically new - need to reciprocally update neighbors and compute Data
   //New frame leaf/key vectors now contain only the geometric new leaves
   for (size_t i = 0; i < new_leaves_.size (); ++i)
@@ -127,7 +128,6 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
       
     this->computeNeighbors (*new_keys_[i],new_leaves_[i]);
     (new_leaves_[i])->computeData ();
-    (new_leaves_[i])->getData ().initLastPoint ();
     //(new_frame_pairs_[i].first)->getData ().setNew (true);
   }
   
@@ -144,12 +144,6 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
   {
     LeafContainerT *leaf_container = leaf_vector_[i];
     boost::shared_ptr<OctreeKey> key = key_vector_[i];
-    //If the stored keys aren't valid due to bounding box changing, update them
-    /*if (!stored_keys_valid_)
-    {
-      OctreeAdjacencyT::genOctreeKeyforPoint (leaf_container->getData ().getPoint (), *key);
-    }
-    */
     //If no neighbors probably noise - delete 
     if (leaf_container->getNumNeighbors () <= 1)
     {
@@ -164,13 +158,14 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
     //Check if the leaf had no points observed this frame
     else if (leaf_container->getPointCounter () == 0)
     {
-      float voxels_to_occluder = testForOcclusion (key);
+      std::pair<float, LeafContainerT*> occluder_pair = testForOcclusion (key, leaf_container);
       //If occluded (distance to occluder != 0)
-      if (voxels_to_occluder != 0.0f)
+      if (occluder_pair.first != 0.0f)
       {
-        //If occluder is right next to it, and it has new neighbor, it can be removed
+        
         //This is basically a test to remove extra voxels caused by objects moving towards the camera
-        if ( voxels_to_occluder <= 3.0f || testForNewNeighbors (leaf_container))
+        if (occluder_pair.first <= 4.0f || (testForNewNeighbors(leaf_container)
+                                              && leaf_container->getData().frame_occluded_ != occluder_pair.second->getData().frame_occluded_))
         {
           #ifdef _OPENMP
           #pragma omp critical (delete_leaves)
@@ -180,7 +175,7 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
             delete_keys.push_back (*key);
           }
         }
-        else //otherwise add it to the current leaves and revert it to last timestep (since current has nothing in it) 
+        else //otherwise add it to the current leaves and revert it to last timestep (since current has nothing in it)
         { //TODO Maybe maintain a separate list of occluded leaves?
           #ifdef _OPENMP
           #pragma omp critical (new_leaves_)
@@ -189,7 +184,10 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
             new_leaves_.push_back (leaf_container); 
             new_keys_.push_back (key);
           }
-          leaf_container->getData ().revertToLastPoint ();
+          if (leaf_container->getData ().frame_occluded_ == 0)
+            leaf_container->getData ().frame_occluded_ = frame_counter_;
+          //We don't need to do this anymore since we're using the accumulator
+          //leaf_container->getData ().revertToLastPoint ();
         }
       }
       else //not occluded & not observed safe to delete
@@ -214,6 +212,8 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
       }
       //Compute the data from the points added to the voxel container
       leaf_container->computeData ();
+      //Not occluded
+      leaf_container->getData ().frame_occluded_ = 0;
       //Use the difference function to check if the leaf has changed
       if ( diff_func_ && diff_func_ (leaf_container) > difference_threshold_)
       {
@@ -223,7 +223,6 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
     
   }
 
-  
   //Swap new leaf_key vector (which now contains old and new combined) for old (which is not needed anymore)
   leaf_vector_.swap (new_leaves_);
   key_vector_.swap (new_keys_);
@@ -249,12 +248,24 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
   }
   
   //Final check to make sure they match the leaf_key_vector is correct size after deletion
-  //assert (leaf_vector_.size () == this->getLeafCount ());
-  //std::cout <<"ASSERT2\n";
-  //assert (key_vector_.size () == leaf_vector_.size ());
+  assert (leaf_vector_.size () == this->getLeafCount ());
+  assert (key_vector_.size () == leaf_vector_.size ());
 
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename PointT, typename LeafContainerT, typename BranchContainerT> LeafContainerT*
+pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT>::getLeafContainerAtPoint (const PointT& point_arg) const
+{
+  OctreeKey key;
+  LeafContainerT* leaf = 0;
+  // generate key
+  OctreeAdjacencyT::genOctreeKeyforPoint (point_arg, key);
+  
+  leaf = this->findLeaf (key);
+  
+  return leaf;
+}
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -307,7 +318,7 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
   //Make sure requested key is valid
   if (key_arg.x > this->max_key_.x || key_arg.y > this->max_key_.y || key_arg.z > this->max_key_.z)
   {
-    PCL_ERROR ("OctreePointCloudAdjacency::computeNeighbors Requested neighbors for invalid octree key\n");
+    PCL_ERROR ("OctreePointCloudSequential::computeNeighbors Requested neighbors for invalid octree key\n");
     return;
   }
   
@@ -354,74 +365,68 @@ pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<typename PointT, typename LeafContainerT, typename BranchContainerT> float
-pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT>::testForOcclusion (boost::shared_ptr<OctreeKey> &key) const
+template<typename PointT, typename LeafContainerT, typename BranchContainerT> std::pair<float, LeafContainerT*>
+pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT>::testForOcclusion (boost::shared_ptr<OctreeKey> &key, LeafContainerT *leaf_container) const
 {
+  OctreeKey kinect_min_z;
+  PointT min_z_pt;
+  min_z_pt.getVector3fMap ().setZero ();
+  min_z_pt.z = 0.3;
+  OctreeAdjacencyT::genOctreeKeyforPoint (min_z_pt, kinect_min_z);
+
   OctreeKey current_key = *key;
   OctreeKey camera_key;
   PointT temp;
   temp.getVector3fMap ().setZero ();
+  if (transform_func_)
+    temp.z = 0.03f; //Can't set to zero if using a transform.
   OctreeAdjacencyT::genOctreeKeyforPoint (temp, camera_key);
-  
   Eigen::Vector3f camera_key_vals (camera_key.x, camera_key.y, camera_key.z);
   Eigen::Vector3f leaf_key_vals (current_key.x,current_key.y,current_key.z);
+  
   Eigen::Vector3f direction = (camera_key_vals - leaf_key_vals);
   float norm = direction.norm ();
   direction.normalize ();
   
   const int nsteps = std::max (1, static_cast<int> (norm / occlusion_test_interval_));
-  leaf_key_vals += (direction * occlusion_test_interval_);
+  leaf_key_vals += (direction); //* occlusion_test_interval_);
   OctreeKey test_key;
-  
+  LeafContainerT* occluder = 0;
   // Walk along the line segment with small steps.
-  for (int i = 1; i < nsteps; ++i)
+  for (int i = 0; i < nsteps; ++i)
   {
     //Start at the leaf voxel, and move back towards sensor.
     leaf_key_vals += (direction * occlusion_test_interval_);
     //This is a shortcut check - if we're outside of the bounding box of the 
     //octree there's no possible occluders. It might be worth it to check all, but < min_z_ is probably sufficient.
-    if (leaf_key_vals.z () <= 0) 
-      return false;
+    if (leaf_key_vals.z () < kinect_min_z.z) 
+      return std::make_pair (0,occluder);
     //Now we need to round the key
-      test_key.x = ::round(leaf_key_vals.x ());
-      test_key.y = ::round(leaf_key_vals.y ());
-      test_key.z = ::round(leaf_key_vals.z ());
-      
-      if (test_key == current_key)
-        continue;
-      
-      current_key = test_key;
-      
-      //If the voxel is occupied, there is a possible occlusion
-      if (this->findLeaf (test_key))
-      {
-        float voxels_to_occluder = i * occlusion_test_interval_;
-        return voxels_to_occluder; 
-      }
-  }
-  //If we didn't run into a leaf on the way to this camera, it can't be occluded.
-  return 0;
-}
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<typename PointT, typename LeafContainerT, typename BranchContainerT> typename pcl::PointCloud<PointT>::Ptr
-pcl::octree::OctreePointCloudSequential<PointT, LeafContainerT, BranchContainerT>::getNewVoxelCloud ()
-{
-  typename PointCloudT::Ptr new_cloud (new PointCloudT ());
-  new_cloud->reserve (leaf_vector_.size ());
-  typename LeafVectorT::iterator leaf_itr;
-  for (leaf_itr = leaf_vector_.begin () ; leaf_itr != leaf_vector_.end (); ++leaf_itr)
-  {
-    if ( (*leaf_itr)->getData ().isNew () || (*leaf_itr)->getData ().isChanged ())
+    test_key.x = ::round(leaf_key_vals.x ());
+    test_key.y = ::round(leaf_key_vals.y ());
+    test_key.z = ::round(leaf_key_vals.z ());
+    
+    if (test_key == current_key)
+      continue;
+    
+    current_key = test_key;
+    
+    occluder = this->findLeaf (test_key);
+    //If the voxel is occupied, there is a possible occlusion
+    if (occluder)
     {
-      new_cloud->push_back ( (*leaf_itr)->getData ().getPoint ());
+      float voxels_to_occluder= 1 + i *occlusion_test_interval_;
+      if (voxels_to_occluder <= 2.5f && !occluder->getData().isNew ())
+        continue;
+      return std::make_pair (voxels_to_occluder, occluder); 
     }
   }
-  return new_cloud;
+  //If we didn't run into a leaf on the way to this camera, it can't be occluded.
+  return std::make_pair (0,occluder);
 }
 
 
+/*
 ////////////////////////////////////////////////////////////////////////////////
 // The rest are container explicit instantiations for XYZ, XYZRGB, and XYZRGBA  point types ///
 ////////////////////////////////////////////////////////////////////////////////
@@ -566,7 +571,6 @@ namespace pcl
       point_arg.y = xyz_[1];
       point_arg.z = xyz_[2];
     }
-   /* 
     // XYZRGB ///////////////////////////////
     template<>
     float
@@ -672,10 +676,10 @@ namespace pcl
       point_arg.y = xyz_[1];
       point_arg.z = xyz_[2];
     }
-    */
+    
   }
 }
-
+*/
 #define PCL_INSTANTIATE_OctreePointCloudSequential(T) template class PCL_EXPORTS pcl::octree::OctreePointCloudSequential<T>;
 
 #endif

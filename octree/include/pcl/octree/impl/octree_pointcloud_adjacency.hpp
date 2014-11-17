@@ -51,9 +51,8 @@ pcl::octree::OctreePointCloudAdjacency<PointT, LeafContainerT, BranchContainerT>
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template<typename PointT, typename LeafContainerT, typename BranchContainerT> void
-pcl::octree::OctreePointCloudAdjacency<PointT, LeafContainerT, BranchContainerT>::addPointsFromInputCloud ()
+pcl::octree::OctreePointCloudAdjacency<PointT, LeafContainerT, BranchContainerT>::defineBoundingBoxOnInputCloud ()
 {
-  //double t1,t2;
   float minX = std::numeric_limits<float>::max (), minY = std::numeric_limits<float>::max (), minZ = std::numeric_limits<float>::max ();
   float maxX = -std::numeric_limits<float>::max(), maxY = -std::numeric_limits<float>::max(), maxZ = -std::numeric_limits<float>::max();
   
@@ -77,7 +76,37 @@ pcl::octree::OctreePointCloudAdjacency<PointT, LeafContainerT, BranchContainerT>
     if (temp.z > maxZ)
       maxZ = temp.z;
   }
-  this->defineBoundingBox (minX, minY, minZ, maxX, maxY, maxZ);
+  
+  PointT temp;
+  temp.getVector3fMap ().setZero ();
+  
+  if (transform_func_)
+  { 
+    temp.z = resolution_;
+    transform_func_ (temp);
+  }
+  if (temp.x < minX)
+    minX = temp.x;
+  if (temp.y < minY)
+    minY = temp.y;
+  if (temp.z < minZ)
+    minZ = temp.z;
+  if (temp.x > maxX)
+    maxX = temp.x;
+  if (temp.y > maxY)
+    maxY = temp.y;
+  if (temp.z > maxZ)
+    maxZ = temp.z;
+  
+  OctreePointCloudT::defineBoundingBox (minX, minY, minZ, maxX, maxY, maxZ);
+}
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+template<typename PointT, typename LeafContainerT, typename BranchContainerT> void
+pcl::octree::OctreePointCloudAdjacency<PointT, LeafContainerT, BranchContainerT>::addPointsFromInputCloud ()
+{
+  //double t1,t2;
+ 
+  defineBoundingBoxOnInputCloud ();
 
   OctreePointCloud<PointT, LeafContainerT, BranchContainerT>::addPointsFromInputCloud ();
   

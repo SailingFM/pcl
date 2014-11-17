@@ -344,10 +344,18 @@ LCCPSegmentation Parameters: \n\
 
   PCL_INFO ("Interpolation voxel cloud -> input cloud and relabeling\n");
   pcl::PointCloud<pcl::PointXYZL>::Ptr segment_labeled_cloud = super.getLabeledCloud ();
+  pcl::PointCloud<pcl::PointXYZL>::Ptr labeled_voxel_cloud = super.getLabeledVoxelCloud ();
+  lccp.relabelCloud (labeled_voxel_cloud);
   lccp.relabelCloud (segment_labeled_cloud);
   SuperVoxelAdjacencyList sv_adjacency_list;
   lccp.getSVAdjacencyList (sv_adjacency_list);  // Needed for visualization
 
+  pcl::PointCloud<pcl::PointXYZRGBL> rgbl_voxel_cloud;
+  pcl::PointCloud<PointT>::Ptr centroid_cloud = super.getVoxelCentroidCloud<PointT> ();
+  pcl::copyPointCloud (*centroid_cloud, rgbl_voxel_cloud);
+  pcl::copyPointCloud (*labeled_voxel_cloud, rgbl_voxel_cloud);
+  
+  
   /// Creating Colored Clouds and Output
   pcl::PointCloud<PointT>::Ptr recolored_cloud_ptr (input_cloud_ptr->makeShared ());
   if (segment_labeled_cloud->size () == input_cloud_ptr->size ())
@@ -379,7 +387,7 @@ LCCPSegmentation Parameters: \n\
         pcl::io::savePCDFile (outputname + "_out.pcd", output_concat_cloud2, Eigen::Vector4f::Zero (), Eigen::Quaternionf::Identity (), save_binary_pcd);
       }
       else
-        pcl::io::savePCDFile (outputname + "_out.pcd", *segment_labeled_cloud, save_binary_pcd);
+        pcl::io::savePCDFile (outputname + "_out.pcd", rgbl_voxel_cloud, save_binary_pcd);
 
       if (sv_output_specified)
       {
